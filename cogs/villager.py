@@ -1,7 +1,6 @@
 import discord
 import fandom
 
-
 class Villager(discord.Cog):
 
     def __init__(self, bot):
@@ -9,11 +8,14 @@ class Villager(discord.Cog):
         fandom.set_wiki("minecraft")
         print(f"** SUCCESSFULLY LOADED {__name__} **")
 
-    @discord.slash_command(name="villager")
+    @discord.slash_command(
+        name = "villager",
+        description = "Lookup trades of a particular villager",
+    )
     async def villager(
         self, 
         ctx, 
-        vill: discord.commands.Option(
+        profession: discord.commands.Option(
             str,
             description="Shows villagers tradings and info",
             required=True,
@@ -25,7 +27,7 @@ class Villager(discord.Cog):
         #print(page.title)
         #print(page.summary)
         #print(page.sections)
-        msg = "You searched for " + page.title + " \w Villager - " + vill + "\n"
+        msg = "You searched for " + page.title + " \w Villager - " + profession + "\n"
         print(msg)
         #
         data = page.content
@@ -37,10 +39,10 @@ class Villager(discord.Cog):
             for sub_section in section.get('sections', []):
                 print(sub_section['title'])
                 villagers.append(sub_section['title'])
-                if vill.lower() in sub_section['title'].lower():
+                if profession.lower() in sub_section['title'].lower():
                     foundVillager = True
-                    msg = "Found the " + vill + " villager\n"
-                    print("Found the " + vill + " villager")
+                    msg = "Found the " + profession + " villager\n"
+                    print("Found the " + profession + " villager")
                     print(sub_section['title'])
                     toPrint = sub_section['content']
                     #print("======================")

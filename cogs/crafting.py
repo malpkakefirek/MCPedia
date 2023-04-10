@@ -1,8 +1,9 @@
 import re
+from io import BytesIO
+
 import discord
 import fandom
 import requests
-from io import BytesIO
 from PIL import Image
 from bs4 import BeautifulSoup
 
@@ -13,14 +14,17 @@ class Crafting(discord.Cog):
         fandom.set_wiki("minecraft")
         print(f"** SUCCESSFULLY LOADED {__name__} **")
 
-    @discord.slash_command(name="crafting")
+    @discord.slash_command(
+        name = "crafting",
+        description = "Lookup a crafting recipe for an item",
+    )
     async def crafting(
         self, 
         ctx, 
         item: discord.commands.Option(
             str,
-            description="Shows crafting",
-            required=True,
+            description = "Shows crafting",
+            required = True,
         ),
     ):
         await ctx.defer()
