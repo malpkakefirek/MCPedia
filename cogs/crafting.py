@@ -26,107 +26,118 @@ class Crafting(discord.Cog):
         await ctx.defer()
         page_id = fandom.search(item, results=1)[0][1]
         page = fandom.page(pageid=page_id)
-        # data = page.content
         exists_text = "Crafting of " + page.title.lower() + " does not exist"
-    
-        # placeholder = "NULL"
-        # crafting_exists = False
-        # for section in data['sections']:
-        #     for sub_section in section.get('sections', []):
-        #         if 'Crafting' in sub_section['content']:
-        #           crafting_exists = True
-        #           placeholder = sub_section['content']
-        #           break
-        #     if (crafting_exists):
-        #         break
 
         crafting_exists = 'Crafting' in page.sections
         
-        if crafting_exists:
-            html = page.html
-            soup = BeautifulSoup(html, 'html.parser')
-            
-            # Get input items
-            sprites = []
-            input_slots = soup.find_all('span', class_='mcui-input')[0]
-            slots = input_slots.find_all('span', class_='invslot')
-            for slot in slots:
-                sprite = slot.find_all('span', class_='sprite inv-sprite')
-                # Slot is empty
-                if len(sprite) == 0:
-                    sprites.append("---")
-                    continue
-                sprites.append(sprite[0])
-            
-            # Get output item
-            output_slots = soup.find_all('span', class_='mcui-output')[0]
-            slots = output_slots.find_all('span', class_='invslot')
-            for slot in slots:
-                sprite = slot.find_all('span', class_='sprite inv-sprite')
-                # Slot is empty
-                if len(sprite) == 0:
-                    sprites.append("---")
-                    continue
-                sprites.append(sprite[0])
-            
-            # Create a new blank image to hold the combined sprites
-            sprite_size = 32  # size of each sprite
-            item_offset = 4  # offset between item slots
-            background_size = (256, 132)
-            combined_image = Image.new('RGBA', background_size, (0, 0, 0, 0))
-            
-            # Load the crafting GUI background image
-            background_url = "images/crafting_gui.jpg"
-            background = Image.open(background_url)
-            
-            # Add the crafting GUI background as the base layer
-            combined_image.paste(background, (0, 0))
-            
-            # Loop through the sprites and paste each one onto the combined image
-            for i, sprite in enumerate(sprites):
-                if sprite == '---':
-                    continue
-            
+        if not crafting_exists:
+            await ctx.respond(exists_text)
+            return
+
+        html = page.html
+        soup = BeautifulSoup(html, 'html.parser')
+
+        # Get input items
+        sprites = []
+        input_slots = soup.find_all('span', class_='mcui-input')[0]
+        slots = input_slots.find_all('span', class_='invslot')
+        for slot in slots:
+            sprite = slot.find_all('span', class_='sprite inv-sprite')
+            # Slot is empty
+            if len(sprite) == 0:
+                sprites.append("---")
+                continue
+            sprites.append(sprite)
+    
+        # Get output item
+        output_slots = soup.find_all('span', class_='mcui-output')[0]
+        slots = output_slots.find_all('span', class_='invslot')
+        for slot in slots:
+            sprite = slot.find_all('span', class_='sprite inv-sprite')
+            # Slot is empty
+            if len(sprite) == 0:
+                sprites.append("---")
+                continue
+            sprites.append(sprite)
+    
+        # Create a new blank image to hold the combined sprites
+        sprite_size = 32  # size of each sprite
+        item_offset = 4  # offset between item slots
+        background_size = (256, 132)
+        combined_image = Image.new('RGBA', background_size, (0, 0, 0, 0))
+    
+        # Load the crafting GUI background image
+        background_url = "./images/crafting_gui.jpg"
+        background = Image.open(background_url)
+    
+        # Add the crafting GUI background as the base layer
+        combined_image.paste(background, (0, 0))
+    
+        # Download the spritesheet
+        spritesheet_url = "https://static.wikia.nocookie.net/minecraft_gamepedia/images/4/44/InvSprite.png/revision/latest?cb=20230403195242&version=1680551568140&format=original"
+        response = requests.get(spritesheet_url, timeout=10)
+        spritesheet = Image.open(BytesIO(response.content))
+    
+        # Create a new list to store the sprite images for each item slot
+        item_sprites = [[] for i in range(10)]
+    
+        # Loop through the sprites and append each one to its corresponding item slot
+        for i, sprite_list in enumerate(sprites):
+            if sprite_list == '---':
+                continue
+            for sprite in sprite_list:
+                # Extract the sprite's position in the spritesheet to crop them
                 style = sprite['style']
-                # Download the spritesheet and crop the sprite image based on its position
-                spritesheet_url = re.search(r'url\((.*?)\)', style).group(1)
-                response = requests.get(spritesheet_url, timeout=60)
-                spritesheet = Image.open(BytesIO(response.content))
-            
-                # extract the sprite's position in the spritesheet to crop them
                 position_match = re.search(r'background-position:\s*(-?\d+)px\s*(-?\d+)px', style)
                 x, y = map(int, position_match.groups())
                 x = abs(x)
                 y = abs(y)
                 sprite_image = spritesheet.crop((x, y, x + sprite_size, y + sprite_size))
-            
-                # Create a mask for the sprite image
-                alpha = sprite_image.getchannel('A')
-                mask = Image.merge('RGBA', (alpha, alpha, alpha, alpha))
-            
-                # Paste the sprite image onto the combined image
-                if i == 9:  # Output slot
+    
+                # Append the sprite image to the corresponding item slot
+                item_sprites[i].append(sprite_image)
+    
+        # Calculate the number of frames in the animation
+        # (use the length of the item slot with the most sprites)
+        num_frames = max(len(item_sprite) for item_sprite in item_sprites)
+        cycle_frames = []
+        # Create a new list to store the sprite images for each frame of the animation
+        for i in range(num_frames):
+            frame_image = Image.new('RGBA', background.size, (0, 0, 0, 0))
+            # Paste the crafting GUI background onto the frame
+            frame_image.paste(background, (0, 0))
+            for j, item_sprite in enumerate(item_sprites):
+                if not item_sprite:
+                    continue
+                # Calculate the position of the item sprite in the item slot
+                if j == 9:  # Output slot
                     item_x = 202
                     item_y = 50
                 else:   # Input slots
-                    row = i // 3
-                    col = i % 3
+                    row = j // 3
+                    col = j % 3
                     item_x = col * (sprite_size + item_offset) + item_offset + 10
                     item_y = row * (sprite_size + item_offset) + item_offset + 10
-                position = (item_x, item_y)
-                combined_image.paste(sprite_image, position, mask)
-                
-                image_buffer = BytesIO()
-                combined_image.save(image_buffer, format='PNG')
-                image_buffer.seek(0)
-                # create a discord.File object from the BytesIO object
-                image_file = discord.File(fp=image_buffer, filename='combined_image.png')
-                
-            await ctx.respond(file=image_file)
-            return
-        else:
-            await ctx.respond(exists_text)
-            return
+                # Paste the corresponding sprite image onto the frame
+                # (use `i % len(item_sprite)` to cycle through the sprites)
+                frame_image.alpha_composite(item_sprite[i % len(item_sprite)], dest=(item_x, item_y))
+            cycle_frames.append(frame_image)
+            
+        # Save the frames to a BytesIO object
+        gif_bytes = BytesIO()
+        cycle_frames[0].save(
+            gif_bytes,
+            format='gif',
+            save_all=True,
+            append_images=cycle_frames[1:],
+            duration=2000,
+            loop=0
+        )
+        gif_bytes.seek(0)
+        # Create a discord.File object from the BytesIO object and send it
+        file = discord.File(gif_bytes, filename='crafting_animation.gif')
+        await ctx.respond(file=file)
+        return
 
 def setup(bot):
     bot.add_cog(Crafting(bot))
