@@ -26,24 +26,23 @@ class Crafting(discord.Cog):
         await ctx.defer()
         page_id = fandom.search(item, results=1)[0][1]
         page = fandom.page(pageid=page_id)
-        data = page.content
+        # data = page.content
         exists_text = "Crafting of " + page.title.lower() + " does not exist"
     
-        placeholder = "NULL"
-        crafting_exists = False
-        for section in data['sections']:
-            for sub_section in section.get('sections', []):
-                if 'Crafting' in sub_section['content']:
-                  crafting_exists = True
-                  placeholder = sub_section['content']
-                  break
-            if (crafting_exists):
-                break
-                
-        image_file = None
+        # placeholder = "NULL"
+        # crafting_exists = False
+        # for section in data['sections']:
+        #     for sub_section in section.get('sections', []):
+        #         if 'Crafting' in sub_section['content']:
+        #           crafting_exists = True
+        #           placeholder = sub_section['content']
+        #           break
+        #     if (crafting_exists):
+        #         break
+
+        crafting_exists = 'Crafting' in page.sections
         
         if crafting_exists:
-            exists_text = None
             html = page.html
             soup = BeautifulSoup(html, 'html.parser')
             
@@ -121,14 +120,13 @@ class Crafting(discord.Cog):
                 combined_image.save(image_buffer, format='PNG')
                 image_buffer.seek(0)
                 # create a discord.File object from the BytesIO object
-                image_file = discord.File(fp=image_buffer, filename='combined_image.jpg')
-        # else:
-        #  print(page.content)
-    
-        ##
-        print(exists_text)
-        await ctx.respond(exists_text, file=image_file)
-
+                image_file = discord.File(fp=image_buffer, filename='combined_image.png')
+                
+            await ctx.respond(file=image_file)
+            return
+        else:
+            await ctx.respond(exists_text)
+            return
 
 def setup(bot):
     bot.add_cog(Crafting(bot))
