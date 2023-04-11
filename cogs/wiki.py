@@ -2,6 +2,9 @@ import discord
 import fandom
 from bs4 import BeautifulSoup as Soup
 
+async def test_autocomplete(ctx):
+    return [str(x) for 
+x in [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30]]
 
 class Wiki(discord.Cog):
 
@@ -10,6 +13,22 @@ class Wiki(discord.Cog):
         fandom.set_wiki("minecraft")
         print(f"** SUCCESSFULLY LOADED {__name__} **")
 
+    @discord.slash_command(
+        name="test",
+        description="test",
+    )
+    async def test(
+        self,
+        ctx,
+        test: discord.commands.Option(
+            str,
+            description="Thing you want to test",
+            autocomplete=test_autocomplete,
+            required=True,
+        ),
+    ):
+        await ctx.respond("test", emphemeral=True)
+    
     @discord.slash_command(
         name="search",
         description="Search for anything in the Minecraft Wiki",
