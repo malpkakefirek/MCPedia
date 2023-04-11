@@ -27,7 +27,7 @@ class Crafting(discord.Cog):
             required = True,
         ),
     ):
-        await ctx.defer()
+        await ctx.defer(ephemeral=True)
         page_id = fandom.search(item, results=1)[0][1]
         page = fandom.page(pageid=page_id)
         exists_text = "Crafting of " + page.title.lower() + " does not exist"
