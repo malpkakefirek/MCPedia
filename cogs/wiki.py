@@ -289,7 +289,7 @@ class Wiki(discord.Cog):
         if len(search_results) == 0:
             embed = discord.Embed(
                 title = "Not Found :(",
-                description = f"Nothing found for '{search}'!",
+                description = f"Nothing found for `{search}`!",
                 color = discord.Color.red()
             )
             await ctx.respond(embed=embed)
