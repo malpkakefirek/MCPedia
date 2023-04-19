@@ -1,3 +1,4 @@
+import re
 import discord
 from discord.ext import commands
 import fandom
@@ -5,6 +6,8 @@ import json
 import requests
 from io import BytesIO
 from discord.ui import Button, View
+from bs4 import BeautifulSoup
+from PIL import Image
 
 
 def get_villagers():
@@ -43,10 +46,13 @@ def generate_url(title, columns, data_source):
     table_data = {
         "title": title,
         "columns": columns,
-        "dataSource": data_source
+        "dataSource": data_source,
     }
     table_data_str = json.dumps(table_data, separators=(',', ':'))
-    url = f'https://api.quickchart.io/v1/table?data={table_data_str}'
+    #options:
+    options = """&options={"paddingVertical":20,"paddingHorizontal":20,"spacing":10,"backgroundColor":"%23eee","fontFamily":"mono","cellHeight":60}"""
+    #
+    url = f'https://api.quickchart.io/v1/table?data={table_data_str}{options}'
     return url
 
 
@@ -60,106 +66,145 @@ class VillagerInfoButton(Button):
         await interaction.response.defer(invisible=False)
         self.disabled = True
         await interaction.message.edit(view=self.view)
-        file = await villager_info(self.name)
-        await interaction.followup.send(file=file)
+        files = await villager_info(self.name)
+        if len(files) != 2:
+            await interaction.followup.send("ERROR!")
+            return
+        embed = discord.Embed(
+            title = self.name,
+            color = discord.Color(43520),    # 00AA00 (dark green)
+        )
+        embed.set_image(url=f"attachment://{files[0].filename}")
+        embed.set_thumbnail(url=f"attachment://{files[1].filename}")
+        await interaction.followup.send(embed=embed, files=files)
 
 
 class VillagerInfoView(View):
-
     def __init__(self, name: str):
         super().__init__(timeout=30)
-        self.add_item(
-            VillagerInfoButton(name=name, label="View all trades"))
+        self.add_item(VillagerInfoButton(name=name, label="View all trades"))
 
 
 async def villager_info(profession):
-    print(profession in professions_list)
-
     page_id = fandom.search("Trading", results=1)[0][1]
     page = fandom.page(pageid=page_id)
-    data = page.content
-    #print(data)
-    print("Checking the info")
-    url = "ERROR"
-    finished = False
-    for section in data['sections']:
-        for sub_section in section.get('sections', []):
-            my_string = sub_section['content'].split("\n")
-            if "Job site block" in my_string[0] and profession in my_string[2]:
-                headers = [{
-                    "width": 100,
-                    "title": "Level",
-                    "dataIndex": "level"
-                }, {
-                    "width": 150,
-                    "title": "Item wanted",
-                    "dataIndex": "item"
-                }, {
-                    "width": 150,
-                    "title": "Default quantity",
-                    "dataIndex": "default_amount"
-                }, {
-                    "width": 130,
-                    "title": "Price multiplier",
-                    "dataIndex": "price_mult"
-                }, {
-                    "width": 200,
-                    "title": "Item given",
-                    "dataIndex": "item_given"
-                }, {
-                    "width": 100,
-                    "title": "Quantity",
-                    "dataIndex": "quantity"
-                }, {
-                    "width": 200,
-                    "title": "Trades until disabled",
-                    "dataIndex": "max_trades"
-                }, {
-                    "width": 200,
-                    "title": "XP to villager",
-                    "dataIndex": "xp"
-                }]
-                title = my_string[2]
+    html = page.html
+    soup = BeautifulSoup(html, 'html.parser')
 
-                data_source = []
-                row = {}
-                level_now = "Novice"
-                row[headers[0]['dataIndex']] = level_now
-                index = 0
-                for i, value in enumerate(my_string[12:]):
-                    if value.strip() == "":
-                        continue
-                    if value.strip() in [
-                            "Novice", "Apprentice", "Journeyman", "Expert",
-                            "Master"
-                    ]:
-                        level_now = value.strip()
-                    else:
-                        if index == 7:
-                            index = 0
-                            data_source.append(row)
-                            row = {}
-                            row[headers[index]['dataIndex']] = level_now
-                        #
-                        row[headers[index + 1]['dataIndex']] = value.strip()
-                        #
-                        index = index + 1
+    start = None
+    for h3 in soup.find_all("h3"):
+        span = h3.find("span")
+        if not span:
+            continue
+        if span.get_text() == profession:
+            start = h3
 
-                data_source.append(row)  # Append the last row
-
-                url = generate_url(title, headers, data_source)
-                #print(f"\n{title}\n{url}\n")
-                finished = True
-                break
-        if finished:
+    spritesheet_url = "https://static.wikia.nocookie.net/minecraft_gamepedia/images/d/df/BlockCSS.png/revision/latest?cb=20230409162508&version=1681057515007&format=original"
+    response = requests.get(spritesheet_url, timeout=10)
+    spritesheet = Image.open(BytesIO(response.content))
+    
+    # Find the table corresponding to the profession
+    table = None
+    job_site_style = None
+    for tag in start.next_siblings:
+        if tag.name == "h3":
             break
+        if tag.name == "table":
+            table = tag
+        if tag.name == "p":
+            job_site_style = tag.find('span', 'sprite block-sprite')['style']
 
+    # create job site block image
+    position_match = re.search(r'background-position:\s*(-?\d+)px\s*(-?\d+)px', job_site_style)
+    x, y = map(int, position_match.groups())
+    x = abs(x)
+    y = abs(y)
+    sprite_size = 16
+    job_site_image = spritesheet.crop((x, y, x + sprite_size, y + sprite_size))
+
+    # pass job site block image into a discord.File object
+    bytes_image = BytesIO()
+    job_site_image.save(bytes_image, format='PNG')
+    bytes_image.seek(0)
+    job_site_file = discord.File(fp=bytes_image, filename='job_site_block.png')
+    
+    # extract the title from the data-description attribute of the table tag
+    title = table['data-description']
+
+    # find the table header row
+    columns = [
+        {
+            "width": 100,
+            "title": "Level",
+            "dataIndex": "level"
+        }, {
+            "width": 150,
+            "title": "Item wanted",
+            "dataIndex": 0
+        }, {
+            "width": 140,
+            "title": "Amount",
+            "dataIndex": 1
+        }, {
+            "width": 175,
+            "title": "Item given",
+            "dataIndex": 3
+        }, {
+            "width": 80,
+            "title": "Amount",
+            "dataIndex": 4
+        }, {
+            "width": 185,
+            "title": "Trades until disabled",
+            "dataIndex": 5
+        }
+    ]
+
+    # find table body rows
+    body_rows = table.find('tbody').find_all('tr')
+    
+    # extract cell data
+    data = []
+    current_level = None
+    for row in body_rows[2:]:
+        try:
+            if not row.find('th').get_text().strip().isnumeric():
+                current_level = row.find('th').get_text().strip()
+        except:
+            pass
+
+        cells = row.find_all('td')
+        item_cell = cells[0]
+        item_links = item_cell.find_all('a')
+        
+        # Single item
+        if len(item_links) == 1:
+            data.append('-')
+            data.append({
+                'level': current_level,
+                **{i: re.sub('\[note [0-9]+\]', '', td.text.strip()) for i, td in enumerate(cells) if i not in [2, 6]}
+            })
+            continue
+
+        # Multiple items with the same name
+        data.append('-')
+        data.append({
+            'level': current_level,
+            0: "\n".join([item.text for item in item_links]).strip(),
+            1: "\n".join([child for child in cells[1].children if not child.name]).replace('\u2013', '–').strip(),
+            **{j+2: re.sub('\[note [0-9]+\]', '', cells[j+2].text.strip()) for j in range(len(cells)-2) if j+2 not in [2, 6]}
+        })
+
+    print(title)
+    print(columns)
+    print(data)
+    url = generate_url(title, columns, data)
+    
     response = requests.get(url, timeout=10)
     with BytesIO(response.content) as image_binary:
         image_binary.seek(0)
         file = discord.File(fp=image_binary, filename='villager_trade.png')
-        return file
-    #await ctx.respond(url)
+    return (file, job_site_file)
 
 
 async def find_who_trades_this(ctx, profession):
@@ -222,8 +267,17 @@ class Villager(commands.Cog):
     ):
         await ctx.defer()
         if choice == ctx.command.options[0].choices[0].name:
-            file = await villager_info(profession)
-            await ctx.respond(file=file)
+            files = await villager_info(profession)
+            if len(files) != 2:
+                await ctx.respond("ERROR!")
+                return
+            embed = discord.Embed(
+                title = profession,
+                color = discord.Color(43520),    # 00AA00 (dark green)
+            )
+            embed.set_image(url=f"attachment://{files[0].filename}")
+            embed.set_thumbnail(url=f"attachment://{files[1].filename}")
+            await ctx.respond(files=files, embed=embed)
         elif choice == ctx.command.options[0].choices[1].name:
             await find_who_trades_this(ctx, profession)
         else:
