@@ -244,12 +244,16 @@ class CraftingButton(discord.ui.Button):
 class SectionsView(discord.ui.View):
     def __init__(self, html, data, sections: list[str], embed: discord.Embed):
         super().__init__(timeout=None)
-        self.add_item(SectionsSelect(data, sections, embed))
-        subsections = [
-            subsection['title'] for section in data['sections'] 
-            if 'sections' in section.keys()
-            for subsection in section['sections'] 
-        ]
+        if len(sections) > 0:
+            self.add_item(SectionsSelect(data, sections, embed))
+
+        subsections = []
+        if 'sections' in data.keys():
+            subsections = [
+                subsection['title'] for section in data['sections'] 
+                if 'sections' in section.keys()
+                for subsection in section['sections'] 
+            ]
         if 'Crafting' in subsections:
             self.add_item(CraftingButton(html))
 
@@ -306,7 +310,7 @@ class Wiki(discord.Cog):
         embed = discord.Embed(
             title = page.title,
             url = wiki_url + page.title.replace(" ", "_"),
-            description = page.summary,
+            description = data['content'],
             color = discord.Color(43520),    # 00AA00 (dark green)
         )
         embed.set_thumbnail(url=image_url)
@@ -336,11 +340,13 @@ class Wiki(discord.Cog):
             'References',
             'External Links'
         ]
-        
-        sections = [
-            section['title'] for section in data['sections'] 
-            if section['title'] not in blacklisted_sections
-        ]
+
+        sections = []
+        if 'sections' in data.keys():
+            sections = [
+                section['title'] for section in data['sections']
+                if section['title'] not in blacklisted_sections
+            ]
         view = SectionsView(html, data, sections, embed)
         await ctx.respond(embed=embed, view=view)
 
