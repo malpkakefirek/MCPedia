@@ -22,10 +22,12 @@ for owner_id in OWNER_IDS:
         print(f"ADDED {owner_id} AS AN OWNER")
 db['permitted'] = owner_ids
 
-bot = commands.Bot(command_prefix="m!",
-                   intents=INTENTS,
-                   help_command=None,
-                   owner_ids=owner_ids)
+bot = commands.Bot(
+    command_prefix="m!",
+    intents=INTENTS,
+    help_command=None,
+    owner_ids=owner_ids
+)
 
 # ========== LOADING COGS =========== #
 
@@ -41,11 +43,6 @@ if __name__ == '__main__':
         if cog.endswith('.py') is True:
             print(f"loading cogs.{cog[:-3]}...")
             bot.load_extension(f'cogs.{cog[:-3]}')
-        elif os.path.isdir(f'cogs/{cog}'):
-            for file in os.listdir(f'cogs/{cog}'):
-                if file.endswith('.py') is True:
-                    print(f"loading cogs.{cog}.{file[:-3]}...")
-                    bot.load_extension(f'cogs.{cog}.{file[:-3]}')
     print("plugins loaded :D")
 
 # ========== ON READY =========== #
