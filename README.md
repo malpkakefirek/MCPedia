@@ -7,7 +7,7 @@ Link do Prezentacji: ***https://docs.google.com/presentation/d/1PrZCXZiF48XxDs-B
 ## Pomocne linki
 Link do serwera ***DISCORD*** z waszymi botami: ***https://discord.gg/uNeEbM4J***.
 
-Discord py ***https://discordpy.readthedocs.io/en/stable/ext/commands/index.html***.<br>
+Pycord docs ***https://github.com/malpkakefirek/MCPedia***.<br>
 Fandom API ***https://pypi.org/project/fandom-py/***.<br>
 Przykłady ***https://github.com/Pycord-Development/pycord/tree/master/examples***.
 ## Ćwiczenia
