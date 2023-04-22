@@ -30,13 +30,13 @@ Przykłady ***https://github.com/Pycord-Development/pycord/tree/master/examples*
 ---
 
 #### 3. Zadanie 3: [Embed]
-> Utwórz nową komendę o nazwie "embed", która będzie przyjmowała dwie zmienne:
-> title typu str, wymagana
-> message typu str, wymagana
-> komenda wyśle embed z tytułem title, contentem message i niebieskim kolorem
-> Note: pomocne może być: 
-> ***https://docs.pycord.dev/en/stable/api/data_classes.html#discord.Embed***
-> ***https://docs.pycord.dev/en/stable/api/data_classes.html#discord.Colour.blue***
+> Utwórz nową komendę o nazwie "embed", która będzie przyjmowała dwie zmienne: <br>
+> title typu str, wymagana <br>
+> message typu str, wymagana <br>
+> komenda wyśle embed z tytułem title, contentem message i niebieskim kolorem <br>
+> Note: pomocne może być: <br>
+> ***https://docs.pycord.dev/en/stable/api/data_classes.html#discord.Embed*** <br>
+> ***https://docs.pycord.dev/en/stable/api/data_classes.html#discord.Colour.blue*** <br>
 ---
 
 #### 4. Zadanie 4: [Implementacja Miencraft Wiki]
