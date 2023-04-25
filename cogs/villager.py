@@ -18,12 +18,17 @@ def get_villagers():
     data = page.content
     villagers = []
     for section in data['sections']:
+        if "Bedrock Edition offers" in section['title']:  # Skip bedrock villagers until they get fixed.
+            continue
         for sub_section in section.get('sections', []):
+            # Skip wandering traders until they get fixed.
             if "Java Edition sales" in sub_section['title']:
-                villagers.append("Wandering trader - Java")
+                # villagers.append("Wandering trader - Java")
+                continue
             elif "Bedrock Edition sales" in sub_section['title']:
-                villagers.append("Wandering trader - Bedrock")
-            elif "Economics" in sub_section['title']:
+                # villagers.append("Wandering trader - Bedrock")
+                continue
+            if "Economics" in sub_section['title']:
                 continue
             else:
                 villagers.append(sub_section['title'])
@@ -240,6 +245,12 @@ class Villager(commands.Cog):
             required = True,
         ),
     ):
+        if profession not in professions_list:
+            await ctx.respond(f"Couldn't find `{profession}`! Make sure to choose from the autocomplete list.")
+            return
+        if profession in ("Nitwit", "Unemployed villager"):
+            await ctx.respond(f"`{profession}` doesn't have any trades :(")
+            return
         await ctx.defer()
 
         files = await villager_info(profession)
