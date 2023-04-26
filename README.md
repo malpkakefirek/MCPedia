@@ -31,6 +31,11 @@ W folderze `cogs/` znajdują się cogi bota.<br>
 
 Komendy próbujcie jedynie na swoich kanałach:exclamation:<br>
 
+Komendy jakie są defaultowo, to:
+`0!ping` (zamiast `0` jest numer twojego bota)
+`/help` - pokazuje wszystkie dostępne komendy bota
+`/hello`
+
 ## Zadania
 
 ---
