@@ -112,12 +112,11 @@ async def villager_info(profession):
     table = None
     job_site_style = None
     for tag in start.next_siblings:
-        if tag.name == "h3":
-            break
-        if tag.name == "table":
-            table = tag
         if tag.name == "p":
             job_site_style = tag.find('span', 'sprite block-sprite')['style']
+        if tag.name == "table":
+            table = tag
+            break  # Stop after finding table
 
     # create job site block image
     position_match = re.search(r'background-position:\s*(-?\d+)px\s*(-?\d+)px', job_site_style)
