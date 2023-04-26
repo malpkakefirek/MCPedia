@@ -5,12 +5,33 @@ Wykonali: **Seratowicz Łukasz, Czajkowski Tomasz**
 Link do Prezentacji: ***https://docs.google.com/presentation/d/1PrZCXZiF48XxDs-BcrGoxy5CqKCiTC4eQqFX99rpzBI/edit?usp=sharing***
 
 ## Pomocne linki
-Link do serwera ***DISCORD*** z waszymi botami: ***https://discord.gg/uNeEbM4J***.
-
 Pycord docs ***https://docs.pycord.dev/en/stable/***.<br>
 Fandom API ***https://pypi.org/project/fandom-py/***.<br>
 Przykłady ***https://github.com/Pycord-Development/pycord/tree/master/examples/app_commands***.
-## Ćwiczenia
+
+## Przed przystąpieniem do zadań (setup)
+Jeżeli jeszcze tego nie zrobiliście, należy dołączyć na serwer ***DISCORD***: ***https://discord.gg/uNeEbM4J***<br>
+Po otrzymaniu roli od nas, powinniście widzieć własny kanał o nazwie numeru waszego bota. Na waszym kanale jest podany token bota.<br>
+
+Należy zainstalować plik [DiscordBotTemplate.zip](https://github.com/malpkakefirek/MCPedia/blob/main/DiscordBotTemplate.zip), rozpakować i otworzyć folder w swoim ulubionym IDE pythona.<br>
+
+Następnie w pliku `config.json` należy podać informacje o bocie, w tym token który znajduje się na twoim kanale.<br>
+
+Należy zainstalować biblioteki poniższymi komendami:<br>
+`pip install py-cord`<br>
+`pip install fandom-py`<br>
+
+Jeżeli masz zainstalowany `discord.py` *mogą* wystąpić pewne problemy. Aby odinstalować, należy wpisać poniższą komendę:<br>
+`pip uninstall discord.py`<br>
+
+Uruchamia się bota, poprzez uruchomienie pliku `main.py`. Możesz to zrobić przez IDE, lub z wiersza poleceń: `python3 main.py`<br>
+
+W folderze `cogs/` znajdują się cogi bota.<br>
+**Na potrzeby zadań będziecie jedynie edytować plik** `cogs/template_cog.py`:exclamation:<br>
+
+Komendy próbujcie jedynie na swoich kanałach:exclamation:<br>
+
+## Zadania
 
 ---
 
