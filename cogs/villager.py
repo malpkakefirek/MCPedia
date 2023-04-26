@@ -290,7 +290,7 @@ class Villager(commands.Cog):
             for sub_section in section.get('sections', []):
                 my_string = sub_section['content'].split("\n")
                 #print(my_string[12:])
-                if item in my_string[11:]:
+                if item.lower() in [string.lower() for string in my_string[11:]]:
                     name = sub_section['title']
                     finished = True
             if finished:
@@ -305,7 +305,7 @@ class Villager(commands.Cog):
             return
 
         embed = discord.Embed(
-            title = f"{name} is the villager that has a trade using {item}",
+            title = f"{name} is the villager that has a trade using {item.title()}",
             color = discord.Color.green()
         )
         view = VillagerInfoView(name)
