@@ -17,7 +17,7 @@ Należy zainstalować plik [DiscordBotTemplate.zip](https://github.com/malpkakef
 
 Następnie w pliku `config.json` należy podać informacje o bocie:<br>
 `bot_number` - numer twojego bota<br>
-`owner_name` - twója nazwa (nie wymagane)<br>
+`owner_name` - twoja nazwa (nie wymagane)<br>
 `owner_id` - twój user id discorda<br>
 `discord_token` - token który znajduje się na twoim kanale.<br>
 
