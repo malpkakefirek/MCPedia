@@ -15,7 +15,11 @@ Po otrzymaniu roli od nas, powinniście widzieć własny kanał o nazwie numeru 
 
 Należy zainstalować plik [DiscordBotTemplate.zip](https://github.com/malpkakefirek/MCPedia/blob/main/DiscordBotTemplate.zip), rozpakować i otworzyć folder w swoim ulubionym IDE pythona.<br>
 
-Następnie w pliku `config.json` należy podać informacje o bocie, w tym token który znajduje się na twoim kanale.<br>
+Następnie w pliku `config.json` należy podać informacje o bocie:<br>
+`bot_number` - numer twojego bota<br>
+`owner_name` - twója nazwa (nie wymagane)<br>
+`owner_id` - twój user id discorda<br>
+`discord_token` - token który znajduje się na twoim kanale.<br>
 
 Należy zainstalować biblioteki poniższymi komendami:<br>
 `pip install py-cord`<br>
