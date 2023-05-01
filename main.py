@@ -1,6 +1,5 @@
 import os
 import discord
-from replit import db
 from discord.ext import commands
 
 from keep_alive import keep_alive
@@ -9,24 +8,13 @@ print(discord.__version__)
 
 DISCORD_TOKEN = os.environ['DISCORD_TOKEN']
 INTENTS = discord.Intents.all()
-OWNER_IDS = [336475402535174154, 311117384951791618]
-#311117384951791618 - Lukasz
-# Give default owners permission, if they don't have it already
-#TODO: change database away from replit?
-if 'permitted' not in db.keys():
-    db['permitted'] = list()
-owner_ids = db['permitted']
-for owner_id in OWNER_IDS:
-    if owner_id not in owner_ids:
-        owner_ids.append(owner_id)
-        print(f"ADDED {owner_id} AS AN OWNER")
-db['permitted'] = owner_ids
+OWNER_IDS = [336475402535174154, 311117384951791618]  # Tomek, Lukasz
 
 bot = commands.Bot(
-    command_prefix="m!",
-    intents=INTENTS,
-    help_command=None,
-    owner_ids=owner_ids
+    command_prefix = "m!",
+    intents = INTENTS,
+    help_command = None,
+    owner_ids = OWNER_IDS
 )
 
 # ========== LOADING COGS =========== #
@@ -59,9 +47,6 @@ async def on_ready():
     # Set activity status to "Listening to /help"
     custom_activity = discord.Activity(type=2, name="/help")
     await bot.change_presence(activity=custom_activity)
-
-    matches = db.prefix("")
-    print(f"====== DATABASE ======\n{matches}")
 
 # ========== ON MESSAGE =========== #
 
