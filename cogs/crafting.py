@@ -26,6 +26,14 @@ def is_element_visible(element):
     return True
 
 
+def convert_animated_sprite_to_static_frame(sprite_image):
+    try:
+        sprite_image.seek(0)  # Go to the first frame
+        return sprite_image.copy()
+    except EOFError:
+        return None  # Return None if there are no frames (shouldn't happen)
+
+
 def createCraftingGifs(soup):
     # Download the spritesheet
     spritesheet_url = "https://static.wikia.nocookie.net/minecraft_gamepedia/images/4/44/InvSprite.png/revision/latest?cb=20230403195242&version=1680551568140&format=original"
@@ -58,6 +66,9 @@ def createCraftingGifs(soup):
         slots = input.find_all('span', class_='invslot')
         for slot in slots:
             sprite = slot.find_all('span', class_='sprite inv-sprite')
+            img_item = slot.find_all('img')
+            if len(img_item) > 0:
+                sprite = img_item
             # Slot is empty
             if len(sprite) == 0:
                 sprites.append("---")
@@ -68,10 +79,13 @@ def createCraftingGifs(soup):
         output = crafting_grid.find('span', class_='mcui-output')
         slots = output.find_all('span', class_='invslot')
         for slot in slots:
-            sprite = slot.find_all('span', class_='sprite inv-sprite')
             stacksize_element = slot.find('span', class_='invslot-stacksize')
             stacksize = int(stacksize_element.text) if stacksize_element else None
         
+            sprite = slot.find_all('span', class_='sprite inv-sprite')
+            img_item = slot.find_all('img')
+            if len(img_item) > 0:
+                sprite = img_item
             # Slot is empty
             if len(sprite) == 0:
                 sprites.append("---")
@@ -99,13 +113,21 @@ def createCraftingGifs(soup):
             if sprite_list == '---':
                 continue
             for sprite in sprite_list:
-                # Extract the sprite's position in the spritesheet to crop them
-                style = sprite['style']
-                position_match = re.search(r'background-position:\s*(-?\d+)px\s*(-?\d+)px', style)
-                x, y = map(int, position_match.groups())
-                x = abs(x)
-                y = abs(y)
-                sprite_image = spritesheet.crop((x, y, x + sprite_size, y + sprite_size))
+                # If item is animated
+                if 'src' in sprite.attrs:
+                    sprite_url = sprite['src']
+                    response = requests.get(sprite_url, timeout=10)
+                    sprite_image = convert_animated_sprite_to_static_frame(Image.open(BytesIO(response.content)))
+                    # sprite_image = sprite_image.resize((sprite_size, sprite_size), Image.ANTIALIAS)
+                    sprite_image = sprite_image.convert('RGBA')
+                else:
+                    # Extract the sprite's position in the spritesheet to crop them
+                    style = sprite['style']
+                    position_match = re.search(r'background-position:\s*(-?\d+)px\s*(-?\d+)px', style)
+                    x, y = map(int, position_match.groups())
+                    x = abs(x)
+                    y = abs(y)
+                    sprite_image = spritesheet.crop((x, y, x + sprite_size, y + sprite_size))
     
                 # Append the sprite image to the corresponding item slot
                 item_sprites[i].append(sprite_image)
