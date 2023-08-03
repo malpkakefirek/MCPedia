@@ -147,6 +147,13 @@ def createCraftingGifs(soup):
             if stacksize is not None:
                 number_x = 225
                 number_y = 68
+                # Add a black border to the stacksize
+                border_size = 1
+                draw.text((number_x - border_size, number_y), str(stacksize), font=font, fill='black')
+                draw.text((number_x + border_size, number_y), str(stacksize), font=font, fill='black')
+                draw.text((number_x, number_y - border_size), str(stacksize), font=font, fill='black')
+                draw.text((number_x, number_y + border_size), str(stacksize), font=font, fill='black')
+                # Draw stacksize
                 draw.text((number_x, number_y), str(stacksize), fill='white', font=font)
         
             frames_with_numbers.append(frame_with_numbers)
