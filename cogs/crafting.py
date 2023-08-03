@@ -34,6 +34,14 @@ def convert_animated_sprite_to_static_frame(sprite_image):
         return None  # Return None if there are no frames (shouldn't happen)
 
 
+def get_crafting_grids_table(page_content):
+    element = page_content.find(id='Crafting').parent
+    crafting_grid_table = None
+    while element.name != 'table':
+        element = element.next
+    return element
+
+
 def createCraftingGifs(soup):
     # Download the spritesheet
     spritesheet_url = "https://static.wikia.nocookie.net/minecraft_gamepedia/images/4/44/InvSprite.png/revision/latest?cb=20230403195242&version=1680551568140&format=original"
@@ -41,20 +49,27 @@ def createCraftingGifs(soup):
     spritesheet = Image.open(BytesIO(response.content))
     
     files = []
-    crafting_grids = soup.find_all('span', class_='mcui-Crafting_Table')
+    crafting_grids_table = get_crafting_grids_table(soup)
+    crafting_grids_rows = crafting_grids_table.find('tbody').find_all('tr')
+    # Sometimes table header is incorrectly inside `tbody` instead of `thead` on the wiki. 
+    # So remove the first row if there is no `thead` in the table
+    if crafting_grids_table.find('thead') is None:
+        crafting_grids_rows.pop(0)
+    # crafting_grids = crafting_grids_table.find_all('span', class_='mcui-Crafting_Table')
     # crafting_grids_inputs = soup.find_all('span', class_='mcui-input')
     # crafting_grids_outputs = soup.find_all('span', class_='mcui-output')
     # Loop for each crafting grid
     # for crafting_grid_input, crafting_grid_output in zip(crafting_grids_inputs, crafting_grids_outputs):
-    for crafting_grid in crafting_grids:
+    for crafting_grid_row in crafting_grids_rows:
+        crafting_grid = crafting_grid_row.find('span', class_='mcui-Crafting_Table')
         # Skip if crafting grid is hidden on wiki
         if not is_element_visible(crafting_grid):
             continue
 
         # Skip if not on Java Edition (might cause problems if there are other `sup` texts not relevant to game versions)
-        table = crafting_grid.parent.parent.parent.find_all('td')
-        if len(table) >= 3:
-            description_element = table[2]
+        columns = crafting_grid_row.find_all('td')
+        if len(columns) >= 3:
+            description_element = columns[2]
             sup_text = description_element.find('sup')
             if sup_text and 'Java Edition' not in sup_text.text and 'JE' not in sup_text.text:
                 print("Skipping gif, because not on Java Edition")
@@ -114,12 +129,14 @@ def createCraftingGifs(soup):
                 continue
             for sprite in sprite_list:
                 # If item is animated
-                if 'src' in sprite.attrs:
+                if 'data-src' in sprite.attrs:
+                    sprite_url = sprite['data-src']
+                    response = requests.get(sprite_url, timeout=10)
+                    sprite_image = convert_animated_sprite_to_static_frame(Image.open(BytesIO(response.content))).convert('RGBA')
+                elif 'src' in sprite.attrs:
                     sprite_url = sprite['src']
                     response = requests.get(sprite_url, timeout=10)
-                    sprite_image = convert_animated_sprite_to_static_frame(Image.open(BytesIO(response.content)))
-                    # sprite_image = sprite_image.resize((sprite_size, sprite_size), Image.ANTIALIAS)
-                    sprite_image = sprite_image.convert('RGBA')
+                    sprite_image = convert_animated_sprite_to_static_frame(Image.open(BytesIO(response.content))).convert('RGBA')
                 else:
                     # Extract the sprite's position in the spritesheet to crop them
                     style = sprite['style']
@@ -236,6 +253,9 @@ class Crafting(discord.Cog):
         soup = BeautifulSoup(html, 'html.parser')
 
         files = createCraftingGifs(soup)
+        while len(files) > 10:
+            await ctx.respond(files=files[0:9])
+            files = files[10:]
         await ctx.respond(files=files)
         return
 

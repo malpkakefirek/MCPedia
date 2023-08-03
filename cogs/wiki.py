@@ -238,6 +238,9 @@ class CraftingButton(discord.ui.Button):
         self.disabled = True
         await interaction.message.edit(view=self.view)
         files = createCraftingGifs(self.html)
+        while len(files) > 10:
+            await interaction.followup.send(files=files[0:9])
+            files = files[10:]
         await interaction.followup.send(files=files)
 
 
