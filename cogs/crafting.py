@@ -1,10 +1,11 @@
 import re
+import os
 from io import BytesIO
 
 import discord
 import fandom
 import requests
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 from bs4 import BeautifulSoup
 
 
@@ -26,6 +27,9 @@ def createCraftingGif(soup):
     slots = output_slots.find_all('span', class_='invslot')
     for slot in slots:
         sprite = slot.find_all('span', class_='sprite inv-sprite')
+        stacksize_element = slot.find('span', class_='invslot-stacksize')
+        stacksize = int(stacksize_element.text) if stacksize_element else None
+    
         # Slot is empty
         if len(sprite) == 0:
             sprites.append("---")
@@ -94,14 +98,29 @@ def createCraftingGif(soup):
             # (use `i % len(item_sprite)` to cycle through the sprites)
             frame_image.alpha_composite(item_sprite[i % len(item_sprite)], dest=(item_x, item_y))
         cycle_frames.append(frame_image)
-        
+    
+    # Create a new list to store the sprite images with numbers for each frame of the animation
+    frames_with_numbers = []
+    # Add the number to each frame of the animation
+    for frame in cycle_frames:
+        frame_with_numbers = frame.copy()
+        draw = ImageDraw.Draw(frame_with_numbers)
+        font = ImageFont.truetype("fonts/MinecraftRegular.ttf", 18)  # You can choose a font and size that suits your needs
+
+        if stacksize is not None:
+            number_x = 225
+            number_y = 68
+            draw.text((number_x, number_y), str(stacksize), fill='white', font=font)
+    
+        frames_with_numbers.append(frame_with_numbers)
+    
     # Save the frames to a BytesIO object
     gif_bytes = BytesIO()
-    cycle_frames[0].save(
+    frames_with_numbers[0].save(
         gif_bytes,
         format='gif',
         save_all=True,
-        append_images=cycle_frames[1:],
+        append_images=frames_with_numbers[1:],
         duration=1500,
         loop=0
     )
