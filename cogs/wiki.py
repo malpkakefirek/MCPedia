@@ -2,7 +2,7 @@ import discord
 import fandom
 from bs4 import BeautifulSoup as Soup
 
-from cogs.crafting import createCraftingGif
+from cogs.crafting import createCraftingGifs
 
 
 def createSectionEmbed(data, section_title: str, old_embed: discord.Embed):
@@ -237,8 +237,8 @@ class CraftingButton(discord.ui.Button):
         await interaction.response.defer(invisible=False)
         self.disabled = True
         await interaction.message.edit(view=self.view)
-        file = createCraftingGif(self.html)
-        await interaction.followup.send(file=file)
+        files = createCraftingGifs(self.html)
+        await interaction.followup.send(files=files)
 
 
 class SectionsView(discord.ui.View):
