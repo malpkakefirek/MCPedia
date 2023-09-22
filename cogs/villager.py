@@ -85,9 +85,10 @@ class VillagerInfoButton(Button):
 
 
 class VillagerInfoView(View):
-    def __init__(self, name: str):
+    def __init__(self, villagers: list[str]):
         super().__init__(timeout=30)
-        self.add_item(VillagerInfoButton(name=name, label="View all trades"))
+        for villager in villagers:
+            self.add_item(VillagerInfoButton(name=villager, label=f"View {villager} trades"))
 
 
 async def villager_info(profession):
@@ -95,6 +96,7 @@ async def villager_info(profession):
     page = fandom.page(pageid=page_id)
     html = page.html
     soup = BeautifulSoup(html, 'html.parser')
+
 
     start = None
     for h3 in soup.find_all("h3"):
@@ -199,9 +201,9 @@ async def villager_info(profession):
             **{j+2: re.sub('\[note [0-9]+\]', '', cells[j+2].text.strip()) for j in range(len(cells)-2) if j+2 not in [2, 6]}
         })
 
-    print(title)
-    print(columns)
-    print(data)
+    # print(title)
+    # print(columns)
+    # print(data)
     url = generate_url(title, columns, data)
     
     response = requests.get(url, timeout=10)
@@ -274,8 +276,8 @@ class Villager(commands.Cog):
         ctx,
         item: discord.commands.Option(
             str,
-            description = "Enter the villager profession",
-            # autocomplete = villagers,
+            description = "Enter an item you want to search for",
+            # autocomplete = items,    # maybe parse a list of traded items on bot start?
             required = True,
         ),
     ):
@@ -284,31 +286,52 @@ class Villager(commands.Cog):
         page = fandom.page(pageid=page_id)
         data = page.content
 
-        name = "ERROR"
-        finished = False
+        name_item = dict()
+        # name = "ERROR"
+        # finished = False
         for section in data['sections']:
             for sub_section in section.get('sections', []):
                 my_string = sub_section['content'].split("\n")
-                #print(my_string[12:])
-                if item.lower() in [string.lower() for string in my_string[11:]]:
-                    name = sub_section['title']
-                    finished = True
-            if finished:
-                break
+                # print(my_string[11:])
+                for string in my_string[11:]:
+                    # skip wandering traders
+                    if sub_section['title'] in ['Java Edition sales', 'Bedrock Edition sales']:
+                        continue
+                    if item.lower() in string.lower():
+                        if sub_section['title'] in name_item.keys():
+                            name_item[sub_section['title']].add(string)    # add to the set
+                        else:
+                            name_item[sub_section['title']] = {string,}    # make a python set
+                        # name = sub_section['title']
+                        # finished = True
+                        # break
+                # if item.lower() in [string.lower() for string in my_string[11:]]:
+                # if finished:
+                    # break    
+            # if finished:
+                # break
 
-        if name == "ERROR":
+        # if name == "ERROR":
+        if not name_item:
             embed = discord.Embed(
-                title = f"Couldn't find a villager that has a trade using {item}",
+                title = f"Couldn't find a villager that has a trade using `{item}`",
                 color = discord.Color.red()
             )
             await ctx.respond(embed=embed)
             return
 
+        listing = ""
+        for villager, trade_item in name_item.items():
+            listing += f"**{villager}** trades `{', '.join(trade_item)}`\n"
+        
         embed = discord.Embed(
-            title = f"{name} is the villager that has a trade using {item.title()}",
-            color = discord.Color.green()
+            title = f"Here are your matches for `{item}`",
+            color = discord.Color.green(),
+            description = listing.strip()
         )
-        view = VillagerInfoView(name)
+        
+        villagers = name_item.keys()
+        view = VillagerInfoView(villagers)
         await ctx.respond(embed=embed, view=view)
 
 
