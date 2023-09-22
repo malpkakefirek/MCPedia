@@ -1,5 +1,6 @@
 import re
 import os
+from random import randint
 from io import BytesIO
 
 import discord
@@ -55,11 +56,6 @@ def createCraftingGifs(soup):
     # So remove the first row if there is no `thead` in the table
     if crafting_grids_table.find('thead') is None:
         crafting_grids_rows.pop(0)
-    # crafting_grids = crafting_grids_table.find_all('span', class_='mcui-Crafting_Table')
-    # crafting_grids_inputs = soup.find_all('span', class_='mcui-input')
-    # crafting_grids_outputs = soup.find_all('span', class_='mcui-output')
-    # Loop for each crafting grid
-    # for crafting_grid_input, crafting_grid_output in zip(crafting_grids_inputs, crafting_grids_outputs):
     for crafting_grid_row in crafting_grids_rows:
         crafting_grid = crafting_grid_row.find('span', class_='mcui-Crafting_Table')
         # Skip if crafting grid is hidden on wiki
@@ -80,15 +76,51 @@ def createCraftingGifs(soup):
         input = crafting_grid.find('span', class_='mcui-input')
         slots = input.find_all('span', class_='invslot')
         for slot in slots:
-            sprite = slot.find_all('span', class_='sprite inv-sprite')
-            img_item = slot.find_all('img')
-            if len(img_item) > 0:
-                sprite = img_item
-            # Slot is empty
-            if len(sprite) == 0:
+            sprite_ordered_list = []
+            
+            # Go the next slot, if slot is empty (air)
+            if len(slot.contents) > 0:
+                element = slot.contents[0]
+            else:
                 sprites.append("---")
                 continue
-            sprites.append(sprite)
+
+            # Get all sprites, while keeping order
+            while element is not None:
+                # Single item
+                if element['class'][0] == 'invslot-item':
+                    item = element.find('span', class_='sprite inv-sprite')
+                    if not item:
+                        item = element.find('img')
+                    sprite_ordered_list.append(item)
+                # Multiple items with random combination
+                elif element['class'][0] == 'animated-subframe':
+                    items = element.find_all('span', class_='sprite inv-sprite')
+                    if len(items) == 0:
+                        items = element.find_all('img')
+                    sprite_ordered_list.append(items)
+                element = element.next_sibling
+
+            # Get random subframe starts and longest list length
+            random_indexes = dict()
+            max_index = 1
+            for i in range(len(sprite_ordered_list)):
+                element = sprite_ordered_list[i]
+                if isinstance(element, list):
+                    random_index = randint(0, len(element) - 1)
+                    random_indexes[i] = random_index
+                    if (len(element) > max_index):
+                        max_index = len(element)
+            # Convert order to animation order with random subframe starts
+            animation_ordered_list = []
+            for i in range(max_index):
+                for j in range(len(sprite_ordered_list)):
+                    element = sprite_ordered_list[j]
+                    if isinstance(element, list):
+                        animation_ordered_list.append(element[(random_indexes[j] + i) % len(element)])
+                    else:
+                        animation_ordered_list.append(element)
+            sprites.append(animation_ordered_list)
     
         # Get output item
         output = crafting_grid.find('span', class_='mcui-output')
