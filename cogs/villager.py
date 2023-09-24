@@ -288,8 +288,6 @@ class Villager(commands.Cog):
             my_string = []
             table = soup.find('table', attrs={'data-description': f'{subsection_title} trades'})
             if not table:
-                table = soup.find('table', attrs={'data-description': f'{subsection_title}'})    # Because of some weird bug with data-description o wiki
-            if not table:
                 continue
             # Convert table to list of strings
             for row in table.find_all('tr'):
