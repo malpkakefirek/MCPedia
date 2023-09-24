@@ -1,13 +1,14 @@
 import re
-import os
 from random import randint
 from io import BytesIO
 
 import discord
-import fandom
 import requests
+from mediawiki import MediaWiki
 from PIL import Image, ImageDraw, ImageFont
 from bs4 import BeautifulSoup
+
+wikipedia = MediaWiki("https://minecraft.wiki/api.php", user_agent="MCPediaDiscordBot/2.1 (https://minecraft.wiki/w/User:Malpkakefirek; https://github.com/malpkakefirek) pymediawiki/0.7.3")
 
 
 def is_element_visible(element):
@@ -37,7 +38,6 @@ def convert_animated_sprite_to_static_frame(sprite_image):
 
 def get_crafting_grids_table(page_content):
     element = page_content.find(id='Crafting').parent
-    crafting_grid_table = None
     while element.name != 'table':
         element = element.next
     return element
@@ -250,7 +250,6 @@ class Crafting(discord.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        fandom.set_wiki("minecraft")
         print(f"** SUCCESSFULLY LOADED {__name__} **")
 
     @discord.slash_command(
@@ -267,9 +266,19 @@ class Crafting(discord.Cog):
         ),
     ):
         await ctx.defer()
-        page_id = fandom.search(item, results=1)[0][1]
-        page = fandom.page(pageid=page_id)
+        search_results = wikipedia.search(item, results=1)
+        if len(search_results) == 0:
+            embed = discord.Embed(
+                title = "Not Found :(",
+                description = f"Nothing found for `{item}`!",
+                color = discord.Color.red()
+            )
+            await ctx.respond(embed=embed)
+            return
+        page_id = search_results[0]
+        page = wikipedia.page(page_id)
 
+        # Probably redundant check
         try:
             page.content
         except AttributeError:

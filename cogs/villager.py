@@ -1,37 +1,39 @@
 import re
 import discord
 from discord.ext import commands
-import fandom
 import json
 import requests
 from io import BytesIO
+
+from mediawiki import MediaWiki
 from discord.ui import Button, View
 from bs4 import BeautifulSoup
 from PIL import Image
 
+wikipedia = MediaWiki("https://minecraft.wiki/api.php", user_agent="MCPediaDiscordBot/2.1 (https://minecraft.wiki/w/User:Malpkakefirek; https://github.com/malpkakefirek) pymediawiki/0.7.3")
+
 
 def get_villagers():
-    fandom.set_wiki("minecraft")
-    page_id = fandom.search("Trading", results=1)[0][1]
-    page = fandom.page(pageid=page_id)
+    page_id = wikipedia.search("Trading", results=1)[0]
+    page = wikipedia.page(page_id)
 
-    data = page.content
+    print(page.table_of_contents)
     villagers = []
-    for section in data['sections']:
-        if "Bedrock Edition offers" in section['title']:  # Skip bedrock villagers until they get fixed.
+    for section_title in page.table_of_contents:
+        if "Bedrock Edition offers" in section_title:  # Skip bedrock villagers until they get fixed.
             continue
-        for sub_section in section.get('sections', []):
+        for sub_section_title in page.table_of_contents[section_title]:
             # Skip wandering traders until they get fixed.
-            if "Java Edition sales" in sub_section['title']:
+            if "Java Edition sales" in sub_section_title:
                 # villagers.append("Wandering trader - Java")
                 continue
-            elif "Bedrock Edition sales" in sub_section['title']:
+            elif "Bedrock Edition sales" in sub_section_title:
                 # villagers.append("Wandering trader - Bedrock")
                 continue
-            if "Economics" in sub_section['title']:
+            if "Economics" in sub_section_title:
                 continue
             else:
-                villagers.append(sub_section['title'])
+                villagers.append(sub_section_title)
     print("Loaded villagers:\n" + "\n".join(villagers))
     return villagers
 
@@ -92,8 +94,8 @@ class VillagerInfoView(View):
 
 
 async def villager_info(profession):
-    page_id = fandom.search("Trading", results=1)[0][1]
-    page = fandom.page(pageid=page_id)
+    page_id = wikipedia.search("Trading", results=1)[0]
+    page = wikipedia.page(page_id)
     html = page.html
     soup = BeautifulSoup(html, 'html.parser')
 
@@ -218,7 +220,6 @@ class Villager(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        fandom.set_wiki("minecraft")
         print(f"** SUCCESSFULLY LOADED {__name__} **")
 
     trade_group = discord.commands.SlashCommandGroup(
@@ -233,12 +234,6 @@ class Villager(commands.Cog):
     async def villager(
         self,
         ctx,
-        # choice: discord.commands.Option(
-        #     str,
-        #     description = "Choose the information you want to get",
-        #     choices = ["Villager info", "Find who trades this item"],
-        #     required = True,
-        # ),
         profession: discord.commands.Option(
             str,
             description = "Enter the villager profession",
@@ -282,36 +277,52 @@ class Villager(commands.Cog):
         ),
     ):
         await ctx.defer()
-        page_id = fandom.search("Trading", results=1)[0][1]
-        page = fandom.page(pageid=page_id)
-        data = page.content
+        page_id = wikipedia.search("Trading", results=1)[0]
+        page = wikipedia.page(page_id)
 
         name_item = dict()
-        # name = "ERROR"
-        # finished = False
-        for section in data['sections']:
-            for sub_section in section.get('sections', []):
-                my_string = sub_section['content'].split("\n")
-                # print(my_string[11:])
-                for string in my_string[11:]:
-                    # skip wandering traders
-                    if sub_section['title'] in ['Java Edition sales', 'Bedrock Edition sales']:
-                        continue
-                    if item.lower() in string.lower():
-                        if sub_section['title'] in name_item.keys():
-                            name_item[sub_section['title']].add(string)    # add to the set
-                        else:
-                            name_item[sub_section['title']] = {string,}    # make a python set
-                        # name = sub_section['title']
-                        # finished = True
-                        # break
-                # if item.lower() in [string.lower() for string in my_string[11:]]:
-                # if finished:
-                    # break    
-            # if finished:
-                # break
+        soup = BeautifulSoup(page.html, 'html.parser')
+        note_pattern = r"\[note \d+\]"
+        for subsection_title in page.table_of_contents['Java Edition offers']:    # Skipping Bedrock Edition and Wandering Traders
+            print(subsection_title)
+            my_string = []
+            table = soup.find('table', attrs={'data-description': f'{subsection_title} trades'})
+            if not table:
+                table = soup.find('table', attrs={'data-description': f'{subsection_title}'})    # Because of some weird bug with data-description o wiki
+            if not table:
+                continue
+            # Convert table to list of strings
+            for row in table.find_all('tr'):
+                cells = row.find_all('td')
+                if len(cells) < 4:
+                    continue
+                
+                item_wanted = cells[0].stripped_strings
+                cell_contents = []
+                for string in item_wanted:
+                    if not re.search(note_pattern, string):
+                        cell_contents.append(string)
+                my_string.append(' '.join(cell_contents))
 
-        # if name == "ERROR":
+                cell_contents = []
+                item_given = cells[3].stripped_strings
+                for string in item_given:
+                    if not re.search(note_pattern, string):
+                        cell_contents.append(string)
+                        
+                my_string.append(' '.join(cell_contents))
+            for string in my_string:
+                # # skip wandering traders
+                # if subsection_title in ['Java Edition sales', 'Bedrock Edition sales']:
+                #     continue
+                if not (item.lower() in string.lower()):
+                    continue
+
+                if subsection_title in name_item.keys():
+                    name_item[subsection_title][string.strip()] = None    # add to the dict
+                else:
+                    name_item[subsection_title] = {string.strip(): None}    # make a python dict (ordered, no duplicates)
+
         if not name_item:
             embed = discord.Embed(
                 title = f"Couldn't find a villager that has a trade using `{item}`",
@@ -321,8 +332,8 @@ class Villager(commands.Cog):
             return
 
         listing = ""
-        for villager, trade_item in name_item.items():
-            listing += f"**{villager}** trades `{', '.join(trade_item)}`\n"
+        for villager, trade_items in name_item.items():
+            listing += f"**{villager}** trades `{', '.join(trade_items.keys())}`\n"
         
         embed = discord.Embed(
             title = f"Here are your matches for `{item}`",
