@@ -9,7 +9,7 @@ https://gist.github.com/StudioMFTechnologies/ad41bfd32b2379ccffe90b0e34128b8b
 Rewritten and optimized by github.com/nonchris
 https://gist.github.com/nonchris/1c7060a14a9d94e7929aa2ef14c41bc2
 
-Rewritten again and heavily modified for my own purposes by github.com/malpkakefirek | Malpkakefirek#0001
+Rewritten again and heavily modified for my own purposes by github.com/malpkakefirek | malpkakefirek#0
 """
 
 
