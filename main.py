@@ -8,7 +8,7 @@ print(discord.__version__)
 
 DISCORD_TOKEN = os.environ['DISCORD_TOKEN']
 INTENTS = discord.Intents.all()
-OWNER_IDS = [336475402535174154, 311117384951791618]  # Tomek, Lukasz
+OWNER_IDS = [336475402535174154, 311117384951791618]  # malp, tiger
 
 bot = commands.Bot(
     command_prefix = "m!",
