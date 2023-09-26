@@ -1,5 +1,5 @@
+import re
 import discord
-import mwparserfromhell
 from mediawiki import MediaWiki, MediaWikiException
 from bs4 import BeautifulSoup as Soup
 
@@ -8,7 +8,7 @@ from cogs.crafting import createCraftingGifs
 wikipedia = MediaWiki("https://minecraft.wiki/api.php", user_agent="MCPediaDiscordBot/2.1 (https://minecraft.wiki/w/User:Malpkakefirek; https://github.com/malpkakefirek) pymediawiki/0.7.3")
 
 
-def createSectionEmbed(page, section_title: str, old_embed: discord.Embed):
+def createSectionEmbed(html, page, section_title: str, old_embed: discord.Embed):
     embeds = []
     
     if section_title == 'Info':
@@ -21,14 +21,36 @@ def createSectionEmbed(page, section_title: str, old_embed: discord.Embed):
         embeds.append(embed)
         embed.set_thumbnail(url=old_embed.thumbnail.url)
 
-        # Experimental
-        parsed_wikitext = mwparserfromhell.parse(page.wikitext)
-        infobox = parsed_wikitext.filter_templates(matches='Infobox')
+        # Experimental infobox
+        infobox = html.find(class_='infobox-rows')
         if infobox:
-            embed.add_field(
-                name = 'Info Box',
-                value = infobox[0].strip_code()
-            )
+            info_text = ""
+            info_rows = infobox.find_all('tr')
+            for row in info_rows:
+                th = row.find('th')
+                header_text = th.get_text(' ', strip=True)
+                print(th)
+                
+                td = row.find('td')
+                
+                # String manipulation                
+                sprite = td.find(class_='sprite')
+                if sprite and "title" in sprite.attrs:
+                    data_text = sprite['title']
+                else:
+                    data_text = ''.join([
+                        re.sub("( ?\n+ +)|( ?\n+ ?)", "", text).replace("<br>", "\n") for text in td.strings 
+                        if text.strip()
+                    ]).strip()
+                # print(repr(data_text))
+                
+                embed.add_field(
+                    name = header_text,
+                    value = data_text,
+                    inline = False
+                )
+                if "♥" in data_text or "🛡" in data_text:
+                    embed.set_footer(text="Note: There are no 'half a heart/armor' emojis, so they are represented the same as full!")
         return embeds
     
     # There are subsections
@@ -214,7 +236,7 @@ def createSectionEmbed(page, section_title: str, old_embed: discord.Embed):
     return embeds
 
 class SectionsSelect(discord.ui.Select):
-    def __init__(self, page, sections: list[str], embed: discord.Embed):
+    def __init__(self, html, page, sections: list[str], embed: discord.Embed):
         options = [discord.SelectOption(label=section) for section in sections]
         options.insert(0, discord.SelectOption(label='Info'))
         super().__init__(
@@ -225,9 +247,10 @@ class SectionsSelect(discord.ui.Select):
         )
         self.page = page
         self.embed = embed
+        self.html = html
 
     async def callback(self, interaction: discord.Interaction):
-        embeds = createSectionEmbed(self.page, self.values[0], self.embed)
+        embeds = createSectionEmbed(self.html, self.page, self.values[0], self.embed)
         if len(embeds) > 1:
             await interaction.response.edit_message(embed=embeds[0], view=None)
             for embed in embeds[1:-1]:
@@ -257,7 +280,7 @@ class SectionsView(discord.ui.View):
     def __init__(self, html, page, sections: list[str], embed: discord.Embed):
         super().__init__(timeout=None)
         if len(sections) > 0:
-            self.add_item(SectionsSelect(page, sections, embed))
+            self.add_item(SectionsSelect(html, page, sections, embed))
 
         subsections = [
             subsection_title for subsection_title in page.table_of_contents.values()
@@ -297,17 +320,17 @@ class Wiki(discord.Cog):
             )
             await ctx.respond(embed=embed)
             return
-        search_results = wikipedia.search(search, results=1)
-        if len(search_results) == 0:
-            embed = discord.Embed(
-                title = "Not Found :(",
-                description = f"Nothing found for `{search}`!",
-                color = discord.Color.red()
-            )
-            await ctx.respond(embed=embed)
-            return
-        page_id = search_results[0]
         try:
+            search_results = wikipedia.search(search, results=1)
+            if len(search_results) == 0:
+                embed = discord.Embed(
+                    title = "Not Found :(",
+                    description = f"Nothing found for `{search}`!",
+                    color = discord.Color.red()
+                )
+                await ctx.respond(embed=embed)
+                return
+            page_id = search_results[0]
             page = wikipedia.page(page_id)
         except MediaWikiException:
             await ctx.respond("We could not complete your search due to a temporary problem. Please try again later.")
@@ -315,7 +338,7 @@ class Wiki(discord.Cog):
         
         html = Soup(page.html, 'html.parser')
         
-        image_a = html.find('a', "image")
+        image_a = html.find(class_="notaninfobox").find('a', "image")
         image_url = "https://minecraft.wiki/images/" + image_a.get('href').split('File:')[1]
         
         embed = discord.Embed(
@@ -327,23 +350,82 @@ class Wiki(discord.Cog):
         print(image_url)
         embed.set_thumbnail(url=image_url)
 
-        # Experimental
-        parsed_wikitext = mwparserfromhell.parse(page.wikitext)
-        infobox = parsed_wikitext.filter_templates(matches='Infobox')
+        # Experimental infobox
+        infobox = html.find(class_='infobox-rows')
         if infobox:
-            info_text = infobox[0].strip_code()
-            while len(info_text) > 1024:
+            # info_text = ""
+            info_rows = infobox.find_all('tr')
+            for row in info_rows:
+                th = row.find('th')
+                header_text = th.get_text(' ', strip=True)
+                print(th)
+                
+                td = row.find('td')
+
+                # One time replacements
+                for link_element in td.find_all('a'):
+                    if not 'href' in link_element:
+                        continue
+                    sprite_text = link_element.find(class_='sprite-text')
+                    if sprite_text:
+                        sprite_text.string.replace_with(f"[{sprite_text.string}](<https://minecraft.wiki{link_element['href']}>)")
+                    elif link_element.string:
+                        link_element.string.replace_with(f"[{link_element.string}](<https://minecraft.wiki{link_element['href']}>)")
+                    else:
+                        sprite = td.find(class_='sprite')
+                        if sprite and "title" in sprite.attrs:
+                            link_element.append(f"[{sprite['title']}](<https://minecraft.wiki{link_element['href']}>)")
+                        else:
+                            link_element.append(f"[{link_element['title']}](<https://minecraft.wiki{link_element['href']}>)")
+                    print(link_element)
+                images = td.find_all('img')
+                for image in images:
+                    if 'alt' in image.attrs:
+                        image.append(image['alt'])
+                for br in td.find_all('br'):
+                    br.append("<br>")
+                for p in td.find_all('p'):
+                    p.append("<br>")
+                for li in td.find_all('li'):
+                    li.append("<br>")
+                for italic in td.find_all('i'):
+                    if italic.string:
+                        italic.string.replace_with(f"*{italic.string}*")
+                    # elif italic.strings:    # doesn't work for some reason
+                    #     for string in italic.strings:
+                    #         string.replace_with(f"_{string}_")
+                    else:
+                        print("skipping italicizing, because idk how to do it")
+                        print(italic)
+                for bold in td.find_all('b'):
+                    if bold.a:
+                        bold.a.string.replace_with(f"**{bold.a.string}**")
+                    else:
+                        bold.string.replace_with(f"**{bold.string}**")
+                mc_hearts = row.find_all(class_='mc-hearts')
+                for mc_heart in mc_hearts:
+                    mc_heart.append(") ")
+                    previous = mc_heart.previous_sibling
+                    previous.string.replace_with(f"{previous.string} (")
+
+                # String manipulation                
+                # sprite = td.find(class_='sprite')
+                # if sprite and "title" in sprite.attrs:
+                #     data_text = sprite['title']
+                # else:
+                data_text = ''.join([
+                    re.sub("( ?\n+ +)|( ?\n+ ?)", "", text).replace("<br>", "\n") for text in td.strings 
+                    if text.strip()
+                ]).strip()
+                # print(repr(data_text))
+                
                 embed.add_field(
-                    name = 'Info Box',
-                    value = info_text[:1024],
+                    name = header_text,
+                    value = data_text,
                     inline = False
                 )
-                info_text = info_text[1024:]
-            embed.add_field(
-                name = 'Info Box',
-                value = info_text,
-                inline = False
-            )
+                if "♥" in data_text or "🛡" in data_text:
+                    embed.set_footer(text="Note: There are no 'half a heart/armor' emojis, so they are represented the same as full!")
 
         blacklisted_sections = [
             'Data values',
