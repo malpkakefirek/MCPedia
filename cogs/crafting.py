@@ -162,11 +162,11 @@ def createCraftingGifs(soup):
             for sprite in sprite_list:
                 # If item is animated
                 if 'data-src' in sprite.attrs:
-                    sprite_url = sprite['data-src']
+                    sprite_url = "https://minecraft.wiki" + sprite['data-src']
                     response = requests.get(sprite_url, timeout=10)
                     sprite_image = convert_animated_sprite_to_static_frame(Image.open(BytesIO(response.content))).convert('RGBA')
                 elif 'src' in sprite.attrs:
-                    sprite_url = sprite['src']
+                    sprite_url = "https://minecraft.wiki" + sprite['src']
                     response = requests.get(sprite_url, timeout=10)
                     sprite_image = convert_animated_sprite_to_static_frame(Image.open(BytesIO(response.content))).convert('RGBA')
                 else:

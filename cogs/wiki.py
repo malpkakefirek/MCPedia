@@ -364,7 +364,8 @@ class Wiki(discord.Cog):
 
                 # One time replacements
                 for link_element in td.find_all('a'):
-                    if not 'href' in link_element:
+                    if not 'href' in link_element.attrs:
+                        print("No link found in: "+str(link_element))
                         continue
                     sprite_text = link_element.find(class_='sprite-text')
                     if sprite_text:
