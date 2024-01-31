@@ -79,5 +79,5 @@ async def ping(ctx):
     await ctx.send("Pong!")
 
 
-keep_alive()
+# keep_alive()
 bot.run(DISCORD_TOKEN)
