@@ -1,11 +1,13 @@
 import os
 import discord
 from discord.ext import commands
+from dotenv import load_dotenv
 
 from keep_alive import keep_alive
 
 print(discord.__version__)
 
+load_dotenv()
 DISCORD_TOKEN = os.environ['DISCORD_TOKEN']
 INTENTS = discord.Intents.all()
 OWNER_IDS = [336475402535174154, 311117384951791618]  # malp, tiger
