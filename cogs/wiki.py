@@ -372,16 +372,17 @@ class Wiki(discord.Cog):
                         sprite_text.string.replace_with(f"[{sprite_text.string}](<https://minecraft.wiki{link_element['href']}>)")
                     elif link_element.string:
                         link_element.string.replace_with(f"[{link_element.string}](<https://minecraft.wiki{link_element['href']}>)")
-                    else:
-                        sprite = td.find(class_='sprite')
-                        if sprite and "title" in sprite.attrs:
-                            link_element.append(f"[{sprite['title']}](<https://minecraft.wiki{link_element['href']}>)")
-                        else:
-                            link_element.append(f"[{link_element['title']}](<https://minecraft.wiki{link_element['href']}>)")
+                    # else:
+                    #     sprite = td.find(class_='sprite')
+                    #     if sprite and "title" in sprite.attrs:
+                    #         link_element.append(f"[{sprite['title']}](<https://minecraft.wiki{link_element['href']}>)")
+                    #     else:
+                    #         link_element.append(f"[{link_element['title']}](<https://minecraft.wiki{link_element['href']}>)")
                     print(link_element)
                 images = td.find_all('img')
                 for image in images:
-                    if 'alt' in image.attrs:
+                    # Add alt to fix hearts and shields, but block all other alts
+                    if 'alt' in image.attrs and len(image['alt']) <= 2:
                         image.append(image['alt'])
                 for br in td.find_all('br'):
                     br.append("<br>")
@@ -399,10 +400,14 @@ class Wiki(discord.Cog):
                         print("skipping italicizing, because idk how to do it")
                         print(italic)
                 for bold in td.find_all('b'):
-                    if bold.a:
-                        bold.a.string.replace_with(f"**{bold.a.string}**")
-                    else:
-                        bold.string.replace_with(f"**{bold.string}**")
+                    # print(bold)
+                    # if bold.a:
+                    #     for a_elem in bold.find_all('a', text=True):
+                    #         a_elem.string.replace_with(f"**{bold.a.string}**")
+                    # else:
+                    #     bold.string.replace_with(f"**{bold.string}**")
+                    bold.insert(0, "**")
+                    bold.append("**")
                 mc_hearts = row.find_all(class_='mc-hearts')
                 for mc_heart in mc_hearts:
                     mc_heart.append(") ")
