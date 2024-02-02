@@ -10,6 +10,8 @@ from discord.ui import Button, View
 from bs4 import BeautifulSoup
 from PIL import Image
 
+from cogs.crafting import convert_animated_sprite_to_static_frame
+
 wikipedia = MediaWiki("https://minecraft.wiki/api.php", user_agent="MCPediaDiscordBot/2.1 (https://minecraft.wiki/w/User:Malpkakefirek; https://github.com/malpkakefirek) pymediawiki/0.7.3")
 
 
@@ -114,27 +116,30 @@ async def villager_info(profession):
     
     # Find the table corresponding to the profession
     table = None
-    job_site_style = None
+    job_site_image = None
     for tag in start.next_siblings:
         if tag.name == "p":
-            job_site_style = tag.find('span', 'sprite block-sprite')['style']
+            job_site_name = tag.find('a')['title']
+            job_site_url = "https://minecraft.wiki" + tag.find('img')['src']
+            response = requests.get(job_site_url, timeout=10)
+            job_site_image = convert_animated_sprite_to_static_frame(Image.open(BytesIO(response.content))).convert('RGBA')
         if tag.name == "table":
             table = tag
             break  # Stop after finding table
 
     # create job site block image
-    position_match = re.search(r'background-position:\s*(-?\d+)px\s*(-?\d+)px', job_site_style)
-    x, y = map(int, position_match.groups())
-    x = abs(x)
-    y = abs(y)
-    sprite_size = 16
-    job_site_image = spritesheet.crop((x, y, x + sprite_size, y + sprite_size))
+    # position_match = re.search(r'background-position:\s*(-?\d+)px\s*(-?\d+)px', job_site_image)
+    # x, y = map(int, position_match.groups())
+    # x = abs(x)
+    # y = abs(y)
+    # sprite_size = 16
+    # job_site_image = spritesheet.crop((x, y, x + sprite_size, y + sprite_size))
 
     # pass job site block image into a discord.File object
     bytes_image = BytesIO()
     job_site_image.save(bytes_image, format='PNG')
     bytes_image.seek(0)
-    job_site_file = discord.File(fp=bytes_image, filename='job_site_block.png')
+    job_site_file = discord.File(fp=bytes_image, filename=f'{job_site_name}.png')
     
     # extract the title from the data-description attribute of the table tag
     title = table['data-description']
