@@ -10,8 +10,6 @@ from discord.ui import Button, View
 from bs4 import BeautifulSoup
 from PIL import Image
 
-from cogs.crafting import convert_animated_sprite_to_static_frame
-
 wikipedia = MediaWiki("https://minecraft.wiki/api.php", user_agent="MCPediaDiscordBot/2.1 (https://minecraft.wiki/w/User:Malpkakefirek; https://github.com/malpkakefirek) pymediawiki/0.7.3")
 
 
@@ -22,20 +20,19 @@ def get_villagers():
     print(page.table_of_contents)
     villagers = []
     for section_title in page.table_of_contents:
-        if "Bedrock Edition offers" in section_title:  # Skip bedrock villagers until they get fixed.
+        # if "Bedrock Edition offers" in section_title:  # Skip bedrock villagers until they get fixed.
+        #     continue
+        if section_title not in ("Non-trading villagers", "Java Edition offers", "Wandering trader sales"):
             continue
         for sub_section_title in page.table_of_contents[section_title]:
             # Skip wandering traders until they get fixed.
             if "Java Edition sales" in sub_section_title:
                 # villagers.append("Wandering trader - Java")
                 continue
-            elif "Bedrock Edition sales" in sub_section_title:
+            if "Bedrock Edition sales" in sub_section_title:
                 # villagers.append("Wandering trader - Bedrock")
                 continue
-            if "Economics" in sub_section_title:
-                continue
-            else:
-                villagers.append(sub_section_title)
+            villagers.append(sub_section_title)
     print("Loaded villagers:\n" + "\n".join(villagers))
     return villagers
 
@@ -122,7 +119,7 @@ async def villager_info(profession):
             job_site_name = tag.find('a')['title']
             job_site_url = "https://minecraft.wiki" + tag.find('img')['src']
             response = requests.get(job_site_url, timeout=10)
-            job_site_image = convert_animated_sprite_to_static_frame(Image.open(BytesIO(response.content))).convert('RGBA')
+            job_site_image = Image.open(BytesIO(response.content)).convert('RGBA')
         if tag.name == "table":
             table = tag
             break  # Stop after finding table
