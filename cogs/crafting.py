@@ -164,11 +164,23 @@ def createCraftingGifs(soup):
                 if 'data-src' in sprite.attrs:
                     sprite_url = "https://minecraft.wiki" + sprite['data-src']
                     response = requests.get(sprite_url, timeout=10)
-                    sprite_image = convert_animated_sprite_to_static_frame(Image.open(BytesIO(response.content))).convert('RGBA')
+                    sprite_image = (
+                        convert_animated_sprite_to_static_frame(
+                            Image.open(BytesIO(response.content))
+                        )
+                        .convert('RGBA')
+                        .resize((sprite_size, sprite_size), Image.NEAREST)
+                    )
                 elif 'src' in sprite.attrs:
                     sprite_url = "https://minecraft.wiki" + sprite['src']
                     response = requests.get(sprite_url, timeout=10)
-                    sprite_image = convert_animated_sprite_to_static_frame(Image.open(BytesIO(response.content))).convert('RGBA')
+                    sprite_image = (
+                        convert_animated_sprite_to_static_frame(
+                            Image.open(BytesIO(response.content))
+                        )
+                        .convert('RGBA')
+                        .resize((sprite_size, sprite_size), Image.NEAREST)
+                    )
                 else:
                     # Extract the sprite's position in the spritesheet to crop them
                     style = sprite['style']
