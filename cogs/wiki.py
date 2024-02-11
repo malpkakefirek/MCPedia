@@ -126,6 +126,8 @@ def createSectionEmbed(html, page, section_title: str, old_embed: discord.Embed)
         # Send subsections to fields
         for subsection_title in page.table_of_contents[section_title]:
             subsection_text = page.section(subsection_title)
+            if not subsection_text:
+                continue
             while len(subsection_text) > 1024:
                 embed.add_field(
                     name = subsection_title,
