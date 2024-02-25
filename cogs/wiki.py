@@ -56,7 +56,9 @@ def createSectionEmbed(html, page, section_title: str, old_embed: discord.Embed)
     # There are subsections
     if page.table_of_contents[section_title]:
         section_content = page.section(section_title)
-        
+        if not section_content:
+            section_content = ""
+
         if len(section_content) > 4096:
             description = section_content[:4096]
             section_content = section_content[4096:]
