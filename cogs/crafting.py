@@ -44,6 +44,10 @@ def get_crafting_grids_table(page_content):
 
 
 def createCraftingGifs(soup):
+    def is_java_edition(text):
+        text = text.lower()
+        return 'java' in text or 'je' in text or 'experiment' in text
+
     # Download the spritesheet
     spritesheet_url = "https://static.wikia.nocookie.net/minecraft_gamepedia/images/4/44/InvSprite.png/revision/latest?cb=20230403195242&version=1680551568140&format=original"
     response = requests.get(spritesheet_url, timeout=10)
@@ -67,7 +71,7 @@ def createCraftingGifs(soup):
         if len(columns) >= 3:
             description_element = columns[2]
             sup_text = description_element.find('sup')
-            if sup_text and 'Java Edition' not in sup_text.text and 'JE' not in sup_text.text:
+            if sup_text and not is_java_edition(sup_text.text):
                 print("Skipping gif, because not on Java Edition")
                 continue
         
