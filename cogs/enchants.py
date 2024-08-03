@@ -26,6 +26,7 @@ def process(item_namespace, enchantment_foundation, mode="levels"):
         "instructions": instructions
     }
 
+
 def combinations(set, k):
     if k > len(set) or k <= 0:
         return []
@@ -44,18 +45,22 @@ def combinations(set, k):
             combs.append(head + tailcombs[j])
     return combs
 
+
 def isInt(obj):
     return obj % 1 == 0
+
 
 def isNaturalNumber(obj):
     is_int = isInt(obj)
     is_positive = obj >= 0
     return is_int and is_positive
 
+
 def isPositiveInt(obj):
     is_int = isInt(obj)
     is_positive = obj > 0
     return is_int and is_positive
+
 
 def hashFromItem(item_obj):
     enchantments_obj = item_obj.enchantments_obj
@@ -75,6 +80,7 @@ def hashFromItem(item_obj):
     item_hash = (item_namespace, tuple(sorted_ids), tuple(sorted_levels), prior_work)
     return item_hash
 
+
 def memoizeHashFromArguments(arguments):
     enchanted_item_objs = arguments[0]
     enchanted_item_hashes = []
@@ -83,14 +89,17 @@ def memoizeHashFromArguments(arguments):
         enchanted_item_hashes.append(item_hash)
     return tuple(enchanted_item_hashes)
 
+
 def memoizeCheapest(func):
     results = {}
+
     def wrapper(*arguments):
         args_key = memoizeHashFromArguments(arguments)
         if args_key not in results:
             results[args_key] = func(*arguments)
         return results[args_key]
     return wrapper
+
 
 def compareCheapest(item_obj1, item_obj2):
     work2item = {}
@@ -125,11 +134,13 @@ def compareCheapest(item_obj1, item_obj2):
         work2item[prior_work2] = item_obj2
     return work2item
 
+
 def cheapestItemFromDictionaryByPriorWork(work2item):
     prior_works = list(work2item.keys())
     cheapest_prior_work = prior_works[0]
     cheapest_item_obj = work2item[cheapest_prior_work]
     return cheapest_item_obj
+
 
 def cheapestItemFromDictionaryByLevels(work2item):
     prior_works = list(work2item.keys())
@@ -148,6 +159,7 @@ def cheapestItemFromDictionaryByLevels(work2item):
     cheapest_item_obj = work2item[cheapest_prior_work]
     return cheapest_item_obj
 
+
 def cheapestItemFromItems2(left_item_obj, right_item_obj):
     try:
         normal_item_obj = combineEnchantedItem(left_item_obj, right_item_obj)
@@ -163,6 +175,7 @@ def cheapestItemFromItems2(left_item_obj, right_item_obj):
     cheapest_item_obj = cheapest_work2item[prior_work]
     return cheapest_item_obj
 
+
 def removeExpensiveCandidatesFromDictionary(work2item):
     cheapest_work2item = {}
     cheapest_levels = None
@@ -172,6 +185,7 @@ def removeExpensiveCandidatesFromDictionary(work2item):
             cheapest_work2item[prior_work] = item_obj
             cheapest_levels = cumulative_levels
     return cheapest_work2item
+
 
 def cheapestItemsFromDictionaries2(left_work2item, right_work2item):
     cheapest_work2item = {}
@@ -196,6 +210,7 @@ def cheapestItemsFromDictionaries2(left_work2item, right_work2item):
     cheapest_work2item = removeExpensiveCandidatesFromDictionary(cheapest_work2item)
     return cheapest_work2item
 
+
 def cheapestItemsFromListN(item_objs):
     item_count = len(item_objs)
     max_item_subcount = item_count // 2
@@ -219,6 +234,7 @@ def cheapestItemsFromListN(item_objs):
                     cheapest_prior_works.append(new_prior_work)
     return cheapest_work2item
 
+
 @memoizeCheapest
 def cheapestItemsFromList(item_objs):
     item_count = len(item_objs)
@@ -237,6 +253,7 @@ def cheapestItemsFromList(item_objs):
         work2item = cheapestItemsFromListN(item_objs)
         return work2item
 
+
 def cheapestItemsFromDictionaries(work2items):
     work2item_count = len(work2items)
     if work2item_count == 1:
@@ -244,6 +261,7 @@ def cheapestItemsFromDictionaries(work2items):
     elif work2item_count == 2:
         left_work2item, right_work2item = work2items
         return cheapestItemsFromDictionaries2(left_work2item, right_work2item)
+
 
 def combineEnchantment(left_enchantment_obj, right_enchantment_obj):
     left_enchantment_id = left_enchantment_obj.id
@@ -261,6 +279,7 @@ def combineEnchantment(left_enchantment_obj, right_enchantment_obj):
     else:
         merge_levels = right_enchantment_obj.levels
         return Enchantments([left_enchantment_obj, right_enchantment_obj], merge_levels)
+
 
 class Enchantment:
     def __init__(self, enchantment_id, level):
@@ -281,6 +300,7 @@ class Enchantment:
         enchantment_namespaces = list(ENCHANTMENT2ID.keys())
         enchantment_namespace = next(key for key, value in ENCHANTMENT2ID.items() if value == enchantment_id)
         return enchantment_namespace
+
 
 def combineEnchantments(left_enchantments_obj, right_enchantments_obj):
     merge_levels = 0
@@ -307,6 +327,7 @@ def combineEnchantments(left_enchantments_obj, right_enchantments_obj):
             merged_enchantment_objs.append(enchantment_obj)
     return Enchantments(merged_enchantment_objs, merge_levels)
 
+
 class Enchantments:
     def __init__(self, enchantment_objs, merge_levels=0):
         for enchantment_obj in enchantment_objs:
@@ -319,8 +340,10 @@ class Enchantments:
             levels += int(enchantment_obj.levels)
         self.levels = levels
 
+
 def combineEnchantedItem(left_item_obj, right_item_obj):
     return MergedEnchantedItem(left_item_obj, right_item_obj)
+
 
 def experienceFromLevel(level):
     if level == 0:
@@ -332,18 +355,22 @@ def experienceFromLevel(level):
     else:
         return 4.5 * level * level - 162.5 * level + 2220
 
+
 def priorWork2Penalty(prior_work):
     return 2 ** prior_work - 1
+
 
 class InvalidEnchantmentError(Exception):
     def __init__(self, message="enchantment incompatible for item namespace"):
         super().__init__(message)
         self.name = "IncompatibleEnchantmentError"
 
+
 class InvalidItemNameError(Exception):
     def __init__(self, message="invalid item name"):
         super().__init__(message)
         self.name = "InvalidItemNameError"
+
 
 class EnchantedItem:
     def __init__(self, item_namespace, enchantments_obj, prior_work=0, cumulative_levels=0, cumulative_minimum_xp=0):
@@ -367,20 +394,24 @@ class EnchantedItem:
         self.cumulative_minimum_xp = cumulative_minimum_xp
         self.maximum_xp = experienceFromLevel(cumulative_levels)
 
+
 class IncompatibleItemsError(Exception):
     def __init__(self, message="(1) at least one item must be book or (2) both items must be same"):
         super().__init__(message)
         self.name = "IncompatibleItemsError"
+
 
 class BookNotOnRightError(Exception):
     def __init__(self, message="book must be on right if other item is not book"):
         super().__init__(message)
         self.name = "BookNotOnRightError"
 
+
 class MergeLevelsTooExpensiveError(Exception):
     def __init__(self, message="merge levels is above maximum allowed"):
         super().__init__(message)
         self.name = "MergeLevelsTooExpensiveError"
+
 
 class MergedEnchantedItem(EnchantedItem):
     def __init__(self, left_item_obj, right_item_obj):
@@ -436,6 +467,7 @@ class MergedEnchantedItem(EnchantedItem):
         instructions.append(single_instruction)
         return instructions
 
+
 def generateEnchantedItems(item_namespace, enchantments, prior_work=0):
     enchanted_item_objs = []
     empty_enchantments_obj = Enchantments([])
@@ -461,19 +493,20 @@ def generateEnchantedItems(item_namespace, enchantments, prior_work=0):
 with open('enchanting_data.json') as f:
     data = json.load(f)
 
+
 class EnchantmentsSelect(discord.ui.Select):
     def __init__(self, item):
         temp = [
             discord.SelectOption(
                 label=f"{enchant} {data['data']['enchants'][enchant]['levelMax']}"
-            ) for enchant, metadata in data['data']['enchants'].items() 
+            ) for enchant, metadata in data['data']['enchants'].items()
             if item in metadata['items']
         ]
         super().__init__(
-            options = temp,
-            min_values = 1,
-            max_values = min(10, len(temp)),
-            placeholder = "Choose Enchantments"
+            options=temp,
+            min_values=1,
+            max_values=min(10, len(temp)),
+            placeholder="Choose Enchantments"
         )
         self.item = item
 
@@ -484,10 +517,10 @@ class EnchantmentsSelect(discord.ui.Select):
         enchants = []
         for value in self.values:
             enchants.append((
-                value.split(' ')[0], 
+                value.split(' ')[0],
                 int(value.split(' ')[1])
             ))
-        
+
         response = process(self.item, enchants, 'levels')
         string = ""
         index = 1
@@ -515,8 +548,8 @@ class EnchantmentsSelect(discord.ui.Select):
             string += f"\n Cost: {instruction[2]} levels ({instruction[3]} xp), Prior Work Penalty: {instruction[4]} levels\n"
             index += 1
         await interaction.edit_original_response(
-            content = string.strip('\n'),
-            view = None,
+            content=string.strip('\n'),
+            view=None,
         )
         # await ctx.respond(string.strip('\n'))
 
@@ -550,7 +583,7 @@ class Enchanting(discord.Cog):
         MAXIMUM_MERGE_LEVELS = 39
 
         # enchants = [('unbreaking', 3), ('mending', 1)]
-        
+
         ITEM2ENCHANTMENTS[item] = []
         enchantment_id = 0
         for enchantment_namespace, enchantment_metadata in data['data']['enchants'].items():
@@ -568,13 +601,12 @@ class Enchanting(discord.Cog):
                 enchantments[index] = ENCHANTMENT2ID[enchantment]
         ITEM2ENCHANTMENTS = dict(ITEM2ENCHANTMENTS)
 
-
         # print(ENCHANTMENT2ID)
         # print(ITEM2ENCHANTMENTS)
         # print(ENCHANTMENT2WEIGHT)
         # print(ENCHANTMENT2NAMESPACE)
         # print(ITEM_NAMESPACES)
-        
+
         # Select enchantments for that item in discord select view
         enchantments_view = discord.ui.View()
         enchantments_view.add_item(EnchantmentsSelect(item))
@@ -582,9 +614,9 @@ class Enchanting(discord.Cog):
             "Select enchantments",
             view=enchantments_view
         )
-        
+
         # await ctx.defer()
-        
+
         return
 
 

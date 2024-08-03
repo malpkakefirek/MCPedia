@@ -17,14 +17,14 @@ class Calculate(discord.Cog):
         ctx,
         amount: discord.commands.Option(
             int,
-            description = "Amount of items",
-            required = True,
+            description="Amount of items",
+            required=True,
         ),
         stack_size: discord.commands.Option(
             int,
-            description = "Stack size",
-            choices = [64, 16, 1],
-            default = 64,
+            description="Stack size",
+            choices=[64, 16, 1],
+            default=64,
         )
     ):
         stacks = math.floor(amount / stack_size)

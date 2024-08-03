@@ -10,7 +10,10 @@ from discord.ui import Button, View
 from bs4 import BeautifulSoup
 from PIL import Image
 
-wikipedia = MediaWiki("https://minecraft.wiki/api.php", user_agent="MCPediaDiscordBot/2.1 (https://minecraft.wiki/w/User:Malpkakefirek; https://github.com/malpkakefirek) pymediawiki/0.7.3")
+wikipedia = MediaWiki(
+    "https://minecraft.wiki/api.php",
+    user_agent="MCPediaDiscordBot/2.1 (https://minecraft.wiki/w/User:Malpkakefirek; https://github.com/malpkakefirek) pymediawiki/0.7.3"
+)
 
 
 def get_villagers():
@@ -55,9 +58,8 @@ def generate_url(title, columns, data_source):
         "dataSource": data_source,
     }
     table_data_str = json.dumps(table_data, separators=(',', ':'))
-    #options:
+    # options:
     options = """&options={"paddingVertical":20,"paddingHorizontal":20,"spacing":10,"backgroundColor":"%23eee","fontFamily":"mono","cellHeight":60}"""
-    #
     url = f'https://api.quickchart.io/v1/table?data={table_data_str}{options}'
     return url
 
@@ -77,8 +79,8 @@ class VillagerInfoButton(Button):
             await interaction.followup.send("ERROR!")
             return
         embed = discord.Embed(
-            title = self.name,
-            color = discord.Color(43520),    # 00AA00 (dark green)
+            title=self.name,
+            color=discord.Color(43520),    # 00AA00 (dark green)
         )
         embed.set_image(url=f"attachment://{files[0].filename}")
         embed.set_thumbnail(url=f"attachment://{files[1].filename}")
@@ -98,7 +100,6 @@ async def villager_info(profession):
     html = page.html
     soup = BeautifulSoup(html, 'html.parser')
 
-
     start = None
     for h3 in soup.find_all("h3"):
         span = h3.find("span")
@@ -110,7 +111,7 @@ async def villager_info(profession):
     spritesheet_url = "https://static.wikia.nocookie.net/minecraft_gamepedia/images/d/df/BlockCSS.png/revision/latest?cb=20230409162508&version=1681057515007&format=original"
     response = requests.get(spritesheet_url, timeout=10)
     spritesheet = Image.open(BytesIO(response.content))
-    
+
     # Find the table corresponding to the profession
     table = None
     job_site_image = None
@@ -137,7 +138,7 @@ async def villager_info(profession):
     job_site_image.save(bytes_image, format='PNG')
     bytes_image.seek(0)
     job_site_file = discord.File(fp=bytes_image, filename=f'{job_site_name}.png')
-    
+
     # extract the title from the data-description attribute of the table tag
     title = table['data-description']
 
@@ -172,7 +173,7 @@ async def villager_info(profession):
 
     # find table body rows
     body_rows = table.find('tbody').find_all('tr')
-    
+
     # extract cell data
     data = []
     current_level = None
@@ -180,19 +181,23 @@ async def villager_info(profession):
         try:
             if not row.find('th').get_text().strip().isnumeric():
                 current_level = row.find('th').get_text().strip()
-        except:
+        except Exception:
             pass
 
         cells = row.find_all('td')
         item_cell = cells[0]
         item_links = item_cell.find_all('a')
-        
+
         # Single item
         if len(item_links) == 1:
             data.append('-')
             data.append({
                 'level': current_level,
-                **{i: re.sub('\[note [0-9]+\]', '', td.text.strip()) for i, td in enumerate(cells) if i not in [2, 6]}
+                **{
+                    i: re.sub(r'\[note [0-9]+\]', '', td.text.strip())
+                    for i, td in enumerate(cells)
+                    if i not in [2, 6]
+                }
             })
             continue
 
@@ -202,14 +207,18 @@ async def villager_info(profession):
             'level': current_level,
             0: "\n".join([item.text for item in item_links]).strip(),
             1: "\n".join([child for child in cells[1].children if not child.name]).replace('\u2013', '–').strip(),
-            **{j+2: re.sub('\[note [0-9]+\]', '', cells[j+2].text.strip()) for j in range(len(cells)-2) if j+2 not in [2, 6]}
+            **{
+                j+2: re.sub(r'\[note [0-9]+\]', '', cells[j+2].text.strip())
+                for j in range(len(cells)-2)
+                if j+2 not in [2, 6]
+            }
         })
 
     # print(title)
     # print(columns)
     # print(data)
     url = generate_url(title, columns, data)
-    
+
     response = requests.get(url, timeout=10)
     with BytesIO(response.content) as image_binary:
         image_binary.seek(0)
@@ -217,7 +226,7 @@ async def villager_info(profession):
     return (file, job_site_file)
 
 
-#Main class
+# Main class
 class Villager(commands.Cog):
 
     def __init__(self, bot):
@@ -225,22 +234,22 @@ class Villager(commands.Cog):
         print(f"** SUCCESSFULLY LOADED {__name__} **")
 
     trade_group = discord.commands.SlashCommandGroup(
-        name = "trades",
-        description = "Commands about trading",
+        name="trades",
+        description="Commands about trading",
     )
 
     @trade_group.command(
-        name = "villager",
-        description = "Get trades of a Villager",
+        name="villager",
+        description="Get trades of a Villager",
     )
     async def villager(
         self,
         ctx,
         profession: discord.commands.Option(
             str,
-            description = "Enter the villager profession",
-            autocomplete = villagers,
-            required = True,
+            description="Enter the villager profession",
+            autocomplete=villagers,
+            required=True,
         ),
     ):
         if profession not in professions_list:
@@ -256,8 +265,8 @@ class Villager(commands.Cog):
             await ctx.respond("ERROR!")
             return
         embed = discord.Embed(
-            title = profession,
-            color = discord.Color(43520),    # 00AA00 (dark green)
+            title=profession,
+            color=discord.Color(43520),    # 00AA00 (dark green)
         )
         embed.set_image(url=f"attachment://{files[0].filename}")
         embed.set_thumbnail(url=f"attachment://{files[1].filename}")
@@ -265,17 +274,17 @@ class Villager(commands.Cog):
 
 
     @trade_group.command(
-        name = "item",
-        description = "Get the Villager that trades a particular item",
+        name="item",
+        description="Get the Villager that trades a particular item",
     )
     async def item(
         self,
         ctx,
         item: discord.commands.Option(
             str,
-            description = "Enter an item you want to search for",
-            # autocomplete = items,    # maybe parse a list of traded items on bot start?
-            required = True,
+            description="Enter an item you want to search for",
+            # autocomplete=items,    # maybe parse a list of traded items on bot start?
+            required=True,
         ),
     ):
         await ctx.defer()
@@ -296,7 +305,7 @@ class Villager(commands.Cog):
                 cells = row.find_all('td')
                 if len(cells) < 4:
                     continue
-                
+
                 item_wanted = cells[0].stripped_strings
                 cell_contents = []
                 for string in item_wanted:
@@ -309,7 +318,7 @@ class Villager(commands.Cog):
                 for string in item_given:
                     if not re.search(note_pattern, string):
                         cell_contents.append(string)
-                        
+
                 my_string.append(' '.join(cell_contents))
             for string in my_string:
                 # # skip wandering traders
@@ -325,8 +334,8 @@ class Villager(commands.Cog):
 
         if not name_item:
             embed = discord.Embed(
-                title = f"Couldn't find a villager that has a trade using `{item}`",
-                color = discord.Color.red()
+                title=f"Couldn't find a villager that has a trade using `{item}`",
+                color=discord.Color.red()
             )
             await ctx.respond(embed=embed)
             return
@@ -334,13 +343,13 @@ class Villager(commands.Cog):
         listing = ""
         for villager, trade_items in name_item.items():
             listing += f"**{villager}** trades `{', '.join(trade_items.keys())}`\n"
-        
+
         embed = discord.Embed(
-            title = f"Here are your matches for `{item}`",
-            color = discord.Color.green(),
-            description = listing.strip()
+            title=f"Here are your matches for `{item}`",
+            color=discord.Color.green(),
+            description=listing.strip()
         )
-        
+
         villagers = name_item.keys()
         view = VillagerInfoView(villagers)
         await ctx.respond(embed=embed, view=view)

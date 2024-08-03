@@ -46,8 +46,8 @@ class Help(discord.Cog):
         ctx,
         command_or_category: discord.commands.Option(
             str,
-            description = "A command or category, you want more info on",
-            default = None
+            description="A command or category, you want more info on",
+            default=None
         )
     ):
         prefix = "/"
@@ -56,7 +56,7 @@ class Help(discord.Cog):
 
         # setting owner name
         owner_name = "MCPedia Team"
-        #avatar = self.bot.get_user(owner_id).avatar.ur
+        # avatar = self.bot.get_user(owner_id).avatar.ur
 
         # checks if cog parameter was given
         # if not: sending all modules and commands not associated with a cog
@@ -87,7 +87,7 @@ class Help(discord.Cog):
                             description = subcommand.description or "No description"
                             commands_desc += f'{mention} - {description}\n'
                     elif isinstance(command, discord.SlashCommand):
-                        description = command.description or "No description" 
+                        description = command.description or "No description"
                         commands_desc += f'{command.mention} - {description}\n'
                     # text command
                     elif isinstance(command, discord.ext.commands.Command):
@@ -128,7 +128,7 @@ class Help(discord.Cog):
             # setting information about author
             emb.set_footer(
                 text=f"Made by {owner} | Version {version}",
-                #icon_url=avatar,
+                # icon_url=avatar,
             )
 
         # block called when one cog-name or command is given
@@ -177,7 +177,7 @@ class Help(discord.Cog):
                             for subcommand in command.subcommands:
                                 emb.add_field(
                                     name=f"</{subcommand.qualified_name}:{command.id}>",
-                                    value=subcommand.description or "No description",                                    
+                                    value=subcommand.description or "No description",
                                     inline=False,
                                 )
                         except Exception:

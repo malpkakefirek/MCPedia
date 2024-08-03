@@ -10,13 +10,13 @@ wikipedia = MediaWiki("https://minecraft.wiki/api.php", user_agent="MCPediaDisco
 
 def createSectionEmbed(html, page, section_title: str, old_embed: discord.Embed):
     embeds = []
-    
+
     if section_title == 'Info':
         embed = discord.Embed(
-            title = old_embed.title,
-            description = page.summarize(),
-            url = old_embed.url,
-            color = old_embed.color
+            title=old_embed.title,
+            description=page.summarize(),
+            url=old_embed.url,
+            color=old_embed.color
         )
         embeds.append(embed)
         embed.set_thumbnail(url=old_embed.thumbnail.url)
@@ -24,35 +24,35 @@ def createSectionEmbed(html, page, section_title: str, old_embed: discord.Embed)
         # Experimental infobox
         infobox = html.find(class_='infobox-rows')
         if infobox:
-            info_text = ""
+            # info_text = ""
             info_rows = infobox.find_all('tr')
             for row in info_rows:
                 th = row.find('th')
                 header_text = th.get_text(' ', strip=True)
                 print(th)
-                
+
                 td = row.find('td')
-                
-                # String manipulation                
+
+                # String manipulation
                 sprite = td.find(class_='sprite')
                 if sprite and "title" in sprite.attrs:
                     data_text = sprite['title']
                 else:
                     data_text = ''.join([
-                        re.sub("( ?\n+ +)|( ?\n+ ?)", "", text).replace("<br>", "\n") for text in td.strings 
+                        re.sub("( ?\n+ +)|( ?\n+ ?)", "", text).replace("<br>", "\n") for text in td.strings
                         if text.strip()
                     ]).strip()
                 # print(repr(data_text))
-                
+
                 embed.add_field(
-                    name = header_text,
-                    value = data_text,
-                    inline = False
+                    name=header_text,
+                    value=data_text,
+                    inline=False
                 )
                 if "♥" in data_text or "🛡" in data_text:
                     embed.set_footer(text="Note: There are no 'half a heart/armor' emojis, so they are represented the same as full!")
         return embeds
-    
+
     # There are subsections
     if page.table_of_contents[section_title]:
         section_content = page.section(section_title)
@@ -65,12 +65,12 @@ def createSectionEmbed(html, page, section_title: str, old_embed: discord.Embed)
         else:
             description = section_content
             section_content = None
-        
+
         embed = discord.Embed(
-            title = old_embed.title + " - " + section_title,
-            url = old_embed.url + "#" + section_title.replace(" ","_"),
-            color = old_embed.color,
-            description = description
+            title=old_embed.title + " - " + section_title,
+            url=old_embed.url + "#" + section_title.replace(" ", "_"),
+            color=old_embed.color,
+            description=description
         )
         embed.set_thumbnail(url=old_embed.thumbnail.url)
         embeds.append(embed)
@@ -81,47 +81,47 @@ def createSectionEmbed(html, page, section_title: str, old_embed: discord.Embed)
         if section_content:
             while len(section_content) > 1024:
                 embed.add_field(
-                    name = section_title,
-                    value = section_content[:1024],
-                    inline = False
+                    name=section_title,
+                    value=section_content[:1024],
+                    inline=False
                 )
                 print(f"222: {len(embed)}")
                 if len(embed) > 6000:
                     embed.remove_field(len(embed.fields)-1)
                     print(f"BBB: {len(embed)}")
                     embed = discord.Embed(
-                        title = old_embed.title + " - " + section_title + " Part " + main_part,
-                        url = old_embed.url + "#" + section_title.replace(" ", "_"),
-                        color = old_embed.color
+                        title=old_embed.title + " - " + section_title + " Part " + main_part,
+                        url=old_embed.url + "#" + section_title.replace(" ", "_"),
+                        color=old_embed.color
                     )
                     embeds.append(embed)
                     embed.add_field(
-                        name = section_title,
-                        value = section_content[:1024],
-                        inline = False
+                        name=section_title,
+                        value=section_content[:1024],
+                        inline=False
                     )
                     main_part += 1
                     print(f"CCC: {len(embed)}")
                 section_content = section_content[1024:]
             embed.add_field(
-                name = section_title,
-                value = section_content,
-                inline = False
+                name=section_title,
+                value=section_content,
+                inline=False
             )
             print(f"DDD: {len(embed)}")
             if len(embed) > 6000:
                 embed.remove_field(len(embed.fields)-1)
                 print(f"EEE: {len(embed)}")
                 embed = discord.Embed(
-                    title = old_embed.title + " - " + section_title,
-                    url = old_embed.url + "#" + section_title.replace(" ", "_"),
-                    color = old_embed.color
+                    title=old_embed.title + " - " + section_title,
+                    url=old_embed.url + "#" + section_title.replace(" ", "_"),
+                    color=old_embed.color
                 )
                 embeds.append(embed)
                 embed.add_field(
-                    name = section_title,
-                    value = section_content,
-                    inline = False
+                    name=section_title,
+                    value=section_content,
+                    inline=False
                 )
                 print(f"FFF: {len(embed)}")
 
@@ -132,54 +132,54 @@ def createSectionEmbed(html, page, section_title: str, old_embed: discord.Embed)
                 continue
             while len(subsection_text) > 1024:
                 embed.add_field(
-                    name = subsection_title,
-                    value = subsection_text[:1024],
-                    inline = False
+                    name=subsection_title,
+                    value=subsection_text[:1024],
+                    inline=False
                 )
                 print(f"GGG: {len(embed)}")
                 if len(embed) > 6000:
                     embed.remove_field(len(embed.fields)-1)
                     print(f"HHH: {len(embed)}")
                     embed = discord.Embed(
-                        title = old_embed.title + " - " + section_title + " Part " + str(main_part),
-                        url = old_embed.url + "#" + section_title.replace(" ","_"),
-                        color = old_embed.color,
+                        title=old_embed.title + " - " + section_title + " Part " + str(main_part),
+                        url=old_embed.url + "#" + section_title.replace(" ", "_"),
+                        color=old_embed.color,
                     )
                     embeds.append(embed)
                     embed.add_field(
-                        name = subsection_title,
-                        value = subsection_text[:1024],
-                        inline = False
+                        name=subsection_title,
+                        value=subsection_text[:1024],
+                        inline=False
                     )
                     main_part += 1
                     print(f"III: {len(embed)}")
                 subsection_text = subsection_text[1024:]
             embed.add_field(
-                name = subsection_title,
-                value = subsection_text,
-                inline = False
+                name=subsection_title,
+                value=subsection_text,
+                inline=False
             )
             print(f"JJJ: {len(embed)}")
             if len(embed) > 6000:
                 embed.remove_field(len(embed.fields)-1)
                 print(f"KKK: {len(embed)}")
                 embed = discord.Embed(
-                    title = old_embed.title + " - " + section_title + " Part " + str(main_part),
-                    url = old_embed.url + "#" + section_title.replace(" ","_"),
-                    color = old_embed.color,
+                    title=old_embed.title + " - " + section_title + " Part " + str(main_part),
+                    url=old_embed.url + "#" + section_title.replace(" ", "_"),
+                    color=old_embed.color,
                 )
                 embeds.append(embed)
                 embed.add_field(
-                    name = subsection_title,
-                    value = subsection_text,
-                    inline = False
+                    name=subsection_title,
+                    value=subsection_text,
+                    inline=False
                 )
                 main_part += 1
                 print(f"LLL: {len(embed)}")
     # No subsections
     else:
         section_content = page.section(section_title)
-        
+
         if len(section_content) > 4096:
             description = section_content[:4096]
             section_content = section_content[4096:]
@@ -188,10 +188,10 @@ def createSectionEmbed(html, page, section_title: str, old_embed: discord.Embed)
             section_content = None
 
         embed = discord.Embed(
-            title = old_embed.title + " - " + section_title,
-            description = description,
-            url = old_embed.url + "#" + section_title.replace(" ", "_"),
-            color = old_embed.color
+            title=old_embed.title + " - " + section_title,
+            description=description,
+            url=old_embed.url + "#" + section_title.replace(" ", "_"),
+            color=old_embed.color
         )
         embed.set_thumbnail(url=old_embed.thumbnail.url)
         embeds.append(embed)
@@ -199,55 +199,56 @@ def createSectionEmbed(html, page, section_title: str, old_embed: discord.Embed)
         if section_content:
             while len(section_content) > 1024:
                 embed.add_field(
-                    name = section_title,
-                    value = section_content[:1024],
-                    inline = False
+                    name=section_title,
+                    value=section_content[:1024],
+                    inline=False
                 )
                 if len(embed) > 6000:
                     embed.remove_field(len(embed.fields)-1)
                     embed = discord.Embed(
-                        title = old_embed.title + " - " + section_title,
-                        url = old_embed.url + "#" + section_title.replace(" ", "_"),
-                        color = old_embed.color
+                        title=old_embed.title + " - " + section_title,
+                        url=old_embed.url + "#" + section_title.replace(" ", "_"),
+                        color=old_embed.color
                     )
                     embeds.append(embed)
                     embed.add_field(
-                        name = section_title,
-                        value = section_content[:1024],
-                        inline = False
+                        name=section_title,
+                        value=section_content[:1024],
+                        inline=False
                     )
                 section_content = section_content[1024:]
             embed.add_field(
-                name = section_title,
-                value = section_content,
-                inline = False
+                name=section_title,
+                value=section_content,
+                inline=False
             )
             if len(embed) > 6000:
                 embed.remove_field(len(embed.fields)-1)
                 embed = discord.Embed(
-                    title = old_embed.title + " - " + section_title,
-                    url = old_embed.url + "#" + section_title.replace(" ", "_"),
-                    color = old_embed.color
+                    title=old_embed.title + " - " + section_title,
+                    url=old_embed.url + "#" + section_title.replace(" ", "_"),
+                    color=old_embed.color
                 )
                 embeds.append(embed)
                 embed.add_field(
-                    name = section_title,
-                    value = section_content,
-                    inline = False
+                    name=section_title,
+                    value=section_content,
+                    inline=False
                 )
     for embed in embeds:
         print(len(embed))
     return embeds
+
 
 class SectionsSelect(discord.ui.Select):
     def __init__(self, html, page, sections: list[str], embed: discord.Embed):
         options = [discord.SelectOption(label=section) for section in sections]
         options.insert(0, discord.SelectOption(label='Info'))
         super().__init__(
-            options = options,
-            min_values = 1,
-            max_values = 1,
-            placeholder = "Choose a Section"
+            options=options,
+            min_values=1,
+            max_values=1,
+            placeholder="Choose a Section"
         )
         self.page = page
         self.embed = embed
@@ -300,7 +301,6 @@ class Wiki(discord.Cog):
         self.bot = bot
         print(f"** SUCCESSFULLY LOADED {__name__} **")
 
-    
     @discord.slash_command(
         name="wiki",
         description="Search for anything in the Minecraft Wiki",
@@ -318,9 +318,9 @@ class Wiki(discord.Cog):
         wiki_url = "https://minecraft.wiki/w/"
         if len(search) > 200:
             embed = discord.Embed(
-                title = "Query Too Long :(",
-                description = "Your search query is too long! It must be 200 characters or less in length.",
-                color = discord.Color.red()
+                title="Query Too Long :(",
+                description="Your search query is too long! It must be 200 characters or less in length.",
+                color=discord.Color.red()
             )
             await ctx.respond(embed=embed)
             return
@@ -328,9 +328,9 @@ class Wiki(discord.Cog):
             search_results = wikipedia.search(search, results=1)
             if len(search_results) == 0:
                 embed = discord.Embed(
-                    title = "Not Found :(",
-                    description = f"Nothing found for `{search}`!",
-                    color = discord.Color.red()
+                    title="Not Found :(",
+                    description=f"Nothing found for `{search}`!",
+                    color=discord.Color.red()
                 )
                 await ctx.respond(embed=embed)
                 return
@@ -339,17 +339,17 @@ class Wiki(discord.Cog):
         except MediaWikiException:
             await ctx.respond("We could not complete your search due to a temporary problem. Please try again later.")
             return
-        
+
         html = Soup(page.html, 'html.parser')
-        
+
         image_a = html.find(class_="notaninfobox").find('a', "image")
         image_url = "https://minecraft.wiki/images/" + image_a.get('href').split('File:')[1]
-        
+
         embed = discord.Embed(
-            title = page.title,
-            url = wiki_url + page.title.replace(" ", "_"),
-            description = page.summarize(),
-            color = discord.Color(43520),    # 00AA00 (dark green)
+            title=page.title,
+            url=wiki_url + page.title.replace(" ", "_"),
+            description=page.summarize(),
+            color=discord.Color(43520),    # 00AA00 (dark green)
         )
         print(image_url)
         embed.set_thumbnail(url=image_url)
@@ -363,12 +363,12 @@ class Wiki(discord.Cog):
                 th = row.find('th')
                 header_text = th.get_text(' ', strip=True)
                 print(th)
-                
+
                 td = row.find('td')
 
                 # One time replacements
                 for link_element in td.find_all('a'):
-                    if not 'href' in link_element.attrs:
+                    if 'href' not in link_element.attrs:
                         print("No link found in: "+str(link_element))
                         continue
                     sprite_text = link_element.find(class_='sprite-text')
@@ -418,21 +418,21 @@ class Wiki(discord.Cog):
                     previous = mc_heart.previous_sibling
                     previous.string.replace_with(f"{previous.string} (")
 
-                # String manipulation                
+                # String manipulation
                 # sprite = td.find(class_='sprite')
                 # if sprite and "title" in sprite.attrs:
                 #     data_text = sprite['title']
                 # else:
                 data_text = ''.join([
-                    re.sub("( ?\n+ +)|( ?\n+ ?)", "", text).replace("<br>", "\n") for text in td.strings 
+                    re.sub("( ?\n+ +)|( ?\n+ ?)", "", text).replace("<br>", "\n") for text in td.strings
                     if text.strip()
                 ]).strip()
                 # print(repr(data_text))
-                
+
                 embed.add_field(
-                    name = header_text,
-                    value = data_text,
-                    inline = False
+                    name=header_text,
+                    value=data_text,
+                    inline=False
                 )
                 if "♥" in data_text or "🛡" in data_text:
                     embed.set_footer(text="Note: There are no 'half a heart/armor' emojis, so they are represented the same as full!")
@@ -457,6 +457,7 @@ class Wiki(discord.Cog):
         ]
         view = SectionsView(html, page, sections, embed)
         await ctx.respond(embed=embed, view=view)
+
 
 def setup(bot):
     bot.add_cog(Wiki(bot))

@@ -8,7 +8,10 @@ from mediawiki import MediaWiki
 from PIL import Image, ImageDraw, ImageFont
 from bs4 import BeautifulSoup
 
-wikipedia = MediaWiki("https://minecraft.wiki/api.php", user_agent="MCPediaDiscordBot/2.1 (https://minecraft.wiki/w/User:Malpkakefirek; https://github.com/malpkakefirek) pymediawiki/0.7.3")
+wikipedia = MediaWiki(
+    "https://minecraft.wiki/api.php",
+    user_agent="MCPediaDiscordBot/2.1 (https://minecraft.wiki/w/User:Malpkakefirek; https://github.com/malpkakefirek) pymediawiki/0.7.3"
+)
 
 
 def is_element_visible(element):
@@ -52,11 +55,11 @@ def createCraftingGifs(soup):
     spritesheet_url = "https://static.wikia.nocookie.net/minecraft_gamepedia/images/4/44/InvSprite.png/revision/latest?cb=20230403195242&version=1680551568140&format=original"
     response = requests.get(spritesheet_url, timeout=10)
     spritesheet = Image.open(BytesIO(response.content))
-    
+
     files = []
     crafting_grids_table = get_crafting_grids_table(soup)
     crafting_grids_rows = crafting_grids_table.find('tbody').find_all('tr')
-    # Sometimes table header is incorrectly inside `tbody` instead of `thead` on the wiki. 
+    # Sometimes table header is incorrectly inside `tbody` instead of `thead` on the wiki.
     # So remove the first row if there is no `thead` in the table
     if crafting_grids_table.find('thead') is None:
         crafting_grids_rows.pop(0)
@@ -71,17 +74,21 @@ def createCraftingGifs(soup):
         if len(columns) >= 3:
             description_element = columns[2]
             sup_text = description_element.find('sup')
-            if sup_text and not is_java_edition(sup_text.text):
-                print("Skipping gif, because not on Java Edition")
-                continue
-        
+            if sup_text:
+                versions = re.search('[(.*?)only]', sup_text.text)
+                print(versions)
+                # If there is a detail in description, telling on which versions it is present
+                if versions and not is_java_edition(versions.group(1)):
+                    print("Skipping gif, because not on Java Edition")
+                    continue
+
         sprites = []
         # Get input items
         input = crafting_grid.find('span', class_='mcui-input')
         slots = input.find_all('span', class_='invslot')
         for slot in slots:
             sprite_ordered_list = []
-            
+
             # Go the next slot, if slot is empty (air)
             if len(slot.contents) > 0:
                 element = slot.contents[0]
@@ -125,14 +132,14 @@ def createCraftingGifs(soup):
                     else:
                         animation_ordered_list.append(element)
             sprites.append(animation_ordered_list)
-    
+
         # Get output item
         output = crafting_grid.find('span', class_='mcui-output')
         slots = output.find_all('span', class_='invslot')
         for slot in slots:
             stacksize_element = slot.find('span', class_='invslot-stacksize')
             stacksize = int(stacksize_element.text) if stacksize_element else None
-        
+
             sprite = slot.find_all('span', class_='sprite inv-sprite')
             img_item = slot.find_all('img')
             if len(img_item) > 0:
@@ -142,23 +149,23 @@ def createCraftingGifs(soup):
                 sprites.append("---")
                 continue
             sprites.append(sprite)
-    
+
         # Create a new blank image to hold the combined sprites
         sprite_size = 32  # size of each sprite
         item_offset = 4  # offset between item slots
         background_size = (256, 132)
         combined_image = Image.new('RGBA', background_size, (0, 0, 0, 0))
-    
+
         # Load the crafting GUI background image
         background_url = "./images/crafting_gui.jpg"
         background = Image.open(background_url)
-    
+
         # Add the crafting GUI background as the base layer
         combined_image.paste(background, (0, 0))
-    
+
         # Create a new list to store the sprite images for each item slot
         item_sprites = [[] for i in range(10)]
-    
+
         # Loop through the sprites and append each one to its corresponding item slot
         for i, sprite_list in enumerate(sprites):
             if sprite_list == '---':
@@ -193,10 +200,10 @@ def createCraftingGifs(soup):
                     x = abs(x)
                     y = abs(y)
                     sprite_image = spritesheet.crop((x, y, x + sprite_size, y + sprite_size))
-    
+
                 # Append the sprite image to the corresponding item slot
                 item_sprites[i].append(sprite_image)
-    
+
         # Calculate the number of frames in the animation
         # (use the length of the item slot with the most sprites)
         num_frames = max(len(item_sprite) for item_sprite in item_sprites)
@@ -222,7 +229,7 @@ def createCraftingGifs(soup):
                 # (use `i % len(item_sprite)` to cycle through the sprites)
                 frame_image.alpha_composite(item_sprite[i % len(item_sprite)], dest=(item_x, item_y))
             cycle_frames.append(frame_image)
-        
+
         # Create a new list to store the sprite images with numbers for each frame of the animation
         frames_with_numbers = []
         # Add the number to each frame of the animation
@@ -230,7 +237,7 @@ def createCraftingGifs(soup):
             frame_with_numbers = frame.copy()
             draw = ImageDraw.Draw(frame_with_numbers)
             font = ImageFont.truetype("fonts/MinecraftRegular.ttf", 18)  # You can choose a font and size that suits your needs
-    
+
             if stacksize is not None:
                 number_x = 225
                 number_y = 68
@@ -242,9 +249,9 @@ def createCraftingGifs(soup):
                 draw.text((number_x, number_y + border_size), str(stacksize), font=font, fill='black')
                 # Draw stacksize
                 draw.text((number_x, number_y), str(stacksize), fill='white', font=font)
-        
+
             frames_with_numbers.append(frame_with_numbers)
-        
+
         # Save the frames to a BytesIO object
         gif_bytes = BytesIO()
         frames_with_numbers[0].save(
@@ -269,25 +276,25 @@ class Crafting(discord.Cog):
         print(f"** SUCCESSFULLY LOADED {__name__} **")
 
     @discord.slash_command(
-        name = "crafting",
-        description = "Lookup a crafting recipe for an item",
+        name="crafting",
+        description="Lookup a crafting recipe for an item",
     )
     async def crafting(
-        self, 
-        ctx, 
+        self,
+        ctx,
         item: discord.commands.Option(
             str,
-            description = "Shows crafting",
-            required = True,
+            description="Shows crafting",
+            required=True,
         ),
     ):
         await ctx.defer()
         search_results = wikipedia.search(item, results=1)
         if len(search_results) == 0:
             embed = discord.Embed(
-                title = "Not Found :(",
-                description = f"Nothing found for `{item}`!",
-                color = discord.Color.red()
+                title="Not Found :(",
+                description=f"Nothing found for `{item}`!",
+                color=discord.Color.red()
             )
             await ctx.respond(embed=embed)
             return
@@ -315,6 +322,7 @@ class Crafting(discord.Cog):
             files = files[10:]
         await ctx.respond(files=files)
         return
+
 
 def setup(bot):
     bot.add_cog(Crafting(bot))
