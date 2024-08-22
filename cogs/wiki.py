@@ -427,11 +427,17 @@ class Wiki(discord.Cog):
                     for single_heart in mc_heart.find_all('img'):
                         if "half" in single_heart['src'].lower():
                             single_heart.string.replace_with("♡")
-                    mc_heart.append(") ")
-                    previous = mc_heart.previous_sibling
-                    previous.string.replace_with(f"{previous.string} (")
+                        elif "empty" in single_heart['src'].lower():
+                            single_heart.string.replace_with("")
+                            break
+                    else:   # (no empty hearts)
+                        mc_heart.append(") ")
+                        previous = mc_heart.previous_sibling
+                        previous.string.replace_with(f"{previous.string} (")
                 mc_armors = row.find_all(class_='iconbar')
                 for mc_armor in mc_armors:
+                    if "heart" in mc_armor['title'].lower():
+                        continue
                     for single_armor in mc_armor.find_all('img'):
                         if "half" in single_armor['src'].lower():
                             single_armor.string.replace_with("½🛡️")
