@@ -495,7 +495,7 @@ with open('enchanting_data.json') as f:
 
 
 class EnchantmentsSelect(discord.ui.Select):
-    def __init__(self, item):
+    def __init__(self, item, author):
         temp = [
             discord.SelectOption(
                 label=f"{enchant} {data['data']['enchants'][enchant]['levelMax']}"
@@ -509,8 +509,13 @@ class EnchantmentsSelect(discord.ui.Select):
             placeholder="Choose Enchantments"
         )
         self.item = item
+        self.author = author
 
     async def callback(self, interaction: discord.Interaction):
+        if interaction.user != self.author:
+            await interaction.respond("You have to run the command yourself to interact with it!", ephemeral=True)
+            return
+
         self.disabled = True
         await interaction.response.edit_message(view=self.view)
 
@@ -525,6 +530,7 @@ class EnchantmentsSelect(discord.ui.Select):
         string = ""
         index = 1
         for instruction in response['instructions']:
+            # TODO make a function to replace item with emoji (+ enchanted vs unenchanted)
             string += f"{index}. Combine **{instruction[0].item_namespace}**"
             # If item is enchanted, list enchantments
             if instruction[0].enchantments_obj.enchantment_objs:
@@ -535,6 +541,8 @@ class EnchantmentsSelect(discord.ui.Select):
                         enchantments += f" {enchantment.level}"
                     enchantments += ", "
                 string += " (" + enchantments.strip(', ') + ")"
+
+            # TODO make a function to replace item with emoji (+ enchanted vs unenchanted)
             string += f" with **{instruction[1].item_namespace}**"
             # If item is enchanted, list enchantments
             if instruction[1].enchantments_obj.enchantment_objs:
@@ -545,7 +553,9 @@ class EnchantmentsSelect(discord.ui.Select):
                         enchantments += f" {enchantment.level}"
                     enchantments += ", "
                 string += " (" + enchantments.strip(', ') + ")"
-            string += f"\n Cost: {instruction[2]} levels ({instruction[3]} xp), Prior Work Penalty: {instruction[4]} levels\n"
+
+            # TODO make this nicer somehow
+            string += f"\n-# **Cost**: {instruction[2]} levels ({instruction[3]} xp), **Prior Work Penalty**: {instruction[4]} levels\n"
             index += 1
         await interaction.edit_original_response(
             content=string.strip('\n'),
@@ -609,7 +619,7 @@ class Enchanting(discord.Cog):
 
         # Select enchantments for that item in discord select view
         enchantments_view = discord.ui.View()
-        enchantments_view.add_item(EnchantmentsSelect(item))
+        enchantments_view.add_item(EnchantmentsSelect(item, ctx.user))
         await ctx.respond(
             "Select enchantments",
             view=enchantments_view
