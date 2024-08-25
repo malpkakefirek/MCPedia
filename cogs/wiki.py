@@ -49,8 +49,8 @@ def createSectionEmbed(html, page, section_title: str, old_embed: discord.Embed)
                     value=data_text,
                     inline=False
                 )
-                if "♥" in data_text or "🛡" in data_text:
-                    embed.set_footer(text="Note: There are no 'half a heart/armor' emojis, so they are represented the same as full!")
+                # if "🛡" in data_text:
+                #     embed.set_footer(text="Note: There is no 'half an armor' emoji, so it is represented the same as full!")
         return embeds
 
     # There are subsections
