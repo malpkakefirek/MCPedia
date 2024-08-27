@@ -4,4 +4,4 @@ This is a discord bot integrating [the Minecraft wiki](minecraft.wiki) and other
 Right now the bot itself isn't publicly available, but I have plans to change that in the future.
 
 ## What's happening with the project?
-At this point the project is on hold, as replit removed free hosting. Once I got time I will look into free hosting options and cleanup the repo from unnecesseary files
+Bot won't be publicly available for the time being, as I don't a host for it. Once I got time to look into hosting options, I will cleanup the repo from unnecesseary files and hopefully open the bot to the public
