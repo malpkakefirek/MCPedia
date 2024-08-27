@@ -340,8 +340,8 @@ class Wiki(discord.Cog):
         except MediaWikiException:
             await ctx.respond("We could not complete your search due to a temporary problem. Please try again later.")
             return
-
         print(f"[INFO] Found '{page.title}' for search '{search}'")
+
         html = Soup(page.html, 'html.parser')
         image_a = html.find(class_="infobox-imagearea").find('a')
 
@@ -371,6 +371,7 @@ class Wiki(discord.Cog):
                 td = row.find('td')
 
                 # One time replacements
+                # links
                 for link_element in td.find_all('a'):
                     if 'href' not in link_element.attrs:
                         print(f"No link found in: {link_element}")
@@ -380,12 +381,10 @@ class Wiki(discord.Cog):
                     if link_element['href'].startswith(link_prefix):
                         link_prefix = ""
 
-                    def replace_nbsp(nav_string):
-                        return str(nav_string.string).replace("\u00A0", " ")
                     if sprite_text:
-                        sprite_text.string.replace_with(f"[{replace_nbsp(sprite_text)}](<{link_prefix}{link_element['href']}>)")
+                        sprite_text.string.replace_with(f"[{sprite_text.string}](<{link_prefix}{link_element['href']}>)")
                     elif link_element.string:
-                        link_element.string.replace_with(f"[{replace_nbsp(link_element)}](<{link_prefix}{link_element['href']}>)")
+                        link_element.string.replace_with(f"[{link_element.string}](<{link_prefix}{link_element['href']}>)")
                     # else:
                     #     sprite = td.find(class_='sprite')
                     #     if sprite and "title" in sprite.attrs:
@@ -393,17 +392,20 @@ class Wiki(discord.Cog):
                     #     else:
                     #         link_element.append(f"[{link_element['title']}](<{link_prefix}{link_element['href']}>)")
                     # print(link_element)
+                # images
                 images = td.find_all('img')
                 for image in images:
                     # Add alt to fix hearts and shields, but block all other alts
                     if 'alt' in image.attrs and len(image['alt']) <= 2:
                         image.append(image['alt'])
+                # new-lines
                 for br in td.find_all('br'):
                     br.append("<br>")
                 for p in td.find_all('p'):
                     p.append("<br>")
                 for li in td.find_all('li'):
                     li.append("<br>")
+                # italics
                 for italic in td.find_all('i'):
                     if italic.string:
                         italic.string.replace_with(f"*{italic.string}*")
@@ -413,6 +415,7 @@ class Wiki(discord.Cog):
                     else:
                         print("skipping italicizing, because idk how to do it")
                         print(italic)
+                # bold text
                 for bold in td.find_all('b'):
                     # print(bold)
                     # if bold.a:
@@ -422,6 +425,7 @@ class Wiki(discord.Cog):
                     #     bold.string.replace_with(f"**{bold.string}**")
                     bold.insert(0, "**")
                     bold.append("**")
+                # hearts
                 mc_hearts = row.find_all(class_='mc-hearts')
                 for mc_heart in mc_hearts:
                     for single_heart in mc_heart.find_all('img'):
@@ -434,6 +438,7 @@ class Wiki(discord.Cog):
                         mc_heart.append(") ")
                         previous = mc_heart.previous_sibling
                         previous.string.replace_with(f"{previous.string} (")
+                # armor
                 mc_armors = row.find_all(class_='iconbar')
                 for mc_armor in mc_armors:
                     if "heart" in mc_armor['title'].lower():
@@ -441,16 +446,25 @@ class Wiki(discord.Cog):
                     for single_armor in mc_armor.find_all('img'):
                         if "half" in single_armor['src'].lower():
                             single_armor.string.replace_with("½🛡️")
-                # String manipulation
-                # sprite = td.find(class_='sprite')
-                # if sprite and "title" in sprite.attrs:
-                #     data_text = sprite['title']
-                # else:
-                data_text = ''.join([
-                    re.sub("( ?\n+ +)|( ?\n+ ?)", "", text).replace("<br>", "\n") for text in td.strings
-                    if text.strip()
-                ]).strip()
-                # print(repr(data_text))
+
+                # remove new-lines (from strings)
+                # replace some special space characters with normal spaces
+                # change "<br>" to new-lines
+                data_list = [
+                    new_text for text in td.strings
+                    if (
+                        (new_text := re.sub(
+                            "\u00A0|\u200B|\u200C",
+                            " ",
+                            re.sub(
+                                r"( ?\n+ +)|( ?\n+ ?)",
+                                "",
+                                text
+                            )
+                        ).replace("<br>", "\n")) != ''
+                    )
+                ]
+                data_text = ''.join(data_list).strip("\n")
 
                 embed.add_field(
                     name=header_text,
