@@ -3,8 +3,6 @@ import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 
-from keep_alive import keep_alive
-
 print(discord.__version__)
 
 load_dotenv()
@@ -13,10 +11,10 @@ INTENTS = discord.Intents.all()
 OWNER_IDS = [336475402535174154, 311117384951791618]  # malp, tiger
 
 bot = commands.Bot(
-    command_prefix = "m!",
-    intents = INTENTS,
-    help_command = None,
-    owner_ids = OWNER_IDS
+    command_prefix="m!",
+    intents=INTENTS,
+    help_command=None,
+    owner_ids=OWNER_IDS
 )
 
 # ========== LOADING COGS =========== #
@@ -34,6 +32,7 @@ if __name__ == '__main__':
             print(f"loading cogs.{cog[:-3]}...")
             bot.load_extension(f'cogs.{cog[:-3]}')
     print("plugins loaded :D")
+
 
 # ========== ON READY =========== #
 
@@ -79,5 +78,4 @@ async def ping(ctx):
     await ctx.send("Pong!")
 
 
-# keep_alive()
 bot.run(DISCORD_TOKEN)
