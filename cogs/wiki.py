@@ -8,6 +8,12 @@ from cogs.crafting import createCraftingGifs
 wikipedia = MediaWiki("https://minecraft.wiki/api.php", user_agent="MCPediaDiscordBot/2.1 (https://minecraft.wiki/w/User:Malpkakefirek; https://github.com/malpkakefirek) pymediawiki/0.7.3")
 
 
+def getEmbedThumbnailUrl(embed):
+    if embed.thumbnail:
+        return embed.thumbnail.url
+    return None
+
+
 def createSectionEmbed(html, page, section_title: str, old_embed: discord.Embed):
     embeds = []
 
@@ -19,7 +25,7 @@ def createSectionEmbed(html, page, section_title: str, old_embed: discord.Embed)
             color=old_embed.color
         )
         embeds.append(embed)
-        embed.set_thumbnail(url=old_embed.thumbnail.url)
+        embed.set_thumbnail(url=getEmbedThumbnailUrl(old_embed))
 
         # Experimental infobox
         infobox = html.find(class_='infobox-rows')
@@ -72,7 +78,7 @@ def createSectionEmbed(html, page, section_title: str, old_embed: discord.Embed)
             color=old_embed.color,
             description=description
         )
-        embed.set_thumbnail(url=old_embed.thumbnail.url)
+        embed.set_thumbnail(url=getEmbedThumbnailUrl(old_embed))
         embeds.append(embed)
         # print(f"AAA: {len(embed)}")
 
@@ -193,7 +199,7 @@ def createSectionEmbed(html, page, section_title: str, old_embed: discord.Embed)
             url=old_embed.url + "#" + section_title.replace(" ", "_"),
             color=old_embed.color
         )
-        embed.set_thumbnail(url=old_embed.thumbnail.url)
+        embed.set_thumbnail(url=getEmbedThumbnailUrl(old_embed))
         embeds.append(embed)
 
         if section_content:
@@ -343,7 +349,10 @@ class Wiki(discord.Cog):
         print(f"[INFO] Found '{page.title}' for search '{search}'")
 
         html = Soup(page.html, 'html.parser')
-        image_a = html.find(class_="infobox-imagearea").find('a')
+        image_area = html.find(class_="infobox-imagearea")
+        image_a = None
+        if image_area is not None:
+            image_a = image_area.find('a')
 
         embed = discord.Embed(
             title=page.title,
@@ -351,7 +360,7 @@ class Wiki(discord.Cog):
             description=page.summarize(),
             color=discord.Color(43520),    # 00AA00 (dark green)
         )
-        if image_a:
+        if image_a is not None:
             image_url = "https://minecraft.wiki/images/" + image_a.get('href').split('File:')[1]
             print(image_url)
             embed.set_thumbnail(url=image_url)
