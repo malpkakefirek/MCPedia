@@ -82,7 +82,7 @@ def createSectionEmbed(html, page, section_title: str, old_embed: discord.Embed)
         embeds.append(embed)
         # print(f"AAA: {len(embed)}")
 
-        main_part = 1
+        embed_number = 2
         # If description is too big, send the rest of it to fields
         if section_content:
             while len(section_content) > 1024:
@@ -96,7 +96,7 @@ def createSectionEmbed(html, page, section_title: str, old_embed: discord.Embed)
                     embed.remove_field(len(embed.fields)-1)
                     # print(f"BBB: {len(embed)}")
                     embed = discord.Embed(
-                        title=old_embed.title + " - " + section_title + " Part " + main_part,
+                        title=old_embed.title + " - " + section_title + " Part " + embed_number,
                         url=old_embed.url + "#" + section_title.replace(" ", "_"),
                         color=old_embed.color
                     )
@@ -106,7 +106,7 @@ def createSectionEmbed(html, page, section_title: str, old_embed: discord.Embed)
                         value=section_content[:1024],
                         inline=False
                     )
-                    main_part += 1
+                    embed_number += 1
                     # print(f"CCC: {len(embed)}")
                 section_content = section_content[1024:]
             embed.add_field(
@@ -147,7 +147,7 @@ def createSectionEmbed(html, page, section_title: str, old_embed: discord.Embed)
                     embed.remove_field(len(embed.fields)-1)
                     # print(f"HHH: {len(embed)}")
                     embed = discord.Embed(
-                        title=old_embed.title + " - " + section_title + " Part " + str(main_part),
+                        title=old_embed.title + " - " + section_title + " Part " + str(embed_number),
                         url=old_embed.url + "#" + section_title.replace(" ", "_"),
                         color=old_embed.color,
                     )
@@ -157,7 +157,7 @@ def createSectionEmbed(html, page, section_title: str, old_embed: discord.Embed)
                         value=subsection_text[:1024],
                         inline=False
                     )
-                    main_part += 1
+                    embed_number += 1
                     # print(f"III: {len(embed)}")
                 subsection_text = subsection_text[1024:]
             embed.add_field(
@@ -170,7 +170,7 @@ def createSectionEmbed(html, page, section_title: str, old_embed: discord.Embed)
                 embed.remove_field(len(embed.fields)-1)
                 # print(f"KKK: {len(embed)}")
                 embed = discord.Embed(
-                    title=old_embed.title + " - " + section_title + " Part " + str(main_part),
+                    title=old_embed.title + " - " + section_title + " Part " + str(embed_number),
                     url=old_embed.url + "#" + section_title.replace(" ", "_"),
                     color=old_embed.color,
                 )
@@ -180,8 +180,12 @@ def createSectionEmbed(html, page, section_title: str, old_embed: discord.Embed)
                     value=subsection_text,
                     inline=False
                 )
-                main_part += 1
+                embed_number += 1
                 # print(f"LLL: {len(embed)}")
+
+        # Add " Part 1" to the title of the first embed, if there are multiple embeds
+        if len(embeds) > 1:
+            embeds[0].title = embeds[0].title + " Part 1"
     # No subsections
     else:
         section_content = page.section(section_title)
