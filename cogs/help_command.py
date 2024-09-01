@@ -253,10 +253,13 @@ class Help(discord.Cog):
         self,
         ctx
     ):
-        text = """MCPedia is a bot that integrates the [Minecraft Wiki](https://minecraft.wiki) into Discord. It also has some other features that are helpful for playing Minecraft.
-        For a full list of commands run the </help:1095358041005772840> command (Tip: You can click the command on the left to auto-fill into chat!)
-
-        If you have any feedback, cool ideas or found some bugs, head on over to our [Support Server](https://discord.gg/fyCxf6AAP9)!"""
+        text = '\n'.join((
+            "MCPedia is a bot that integrates the [Minecraft Wiki](https://minecraft.wiki) into Discord.",
+            "It also has some other features that are helpful for playing Minecraft.",
+            "For a full list of commands run the </help:1095358041005772840> command (Tip: You can click the command on the left to auto-fill into chat!)",
+            "",
+            "If you have any feedback, cool ideas or found some bugs, head on over to our [Support Server](https://discord.gg/fyCxf6AAP9)!"
+        ))
         embed = discord.Embed(
             title=":sparkles: __About MCPedia__ :sparkles:",
             color=discord.Color.purple(),
