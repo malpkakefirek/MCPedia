@@ -498,7 +498,7 @@ class EnchantmentsSelect(discord.ui.Select):
     def __init__(self, item, author):
         temp = [
             discord.SelectOption(
-                label=f"{enchant} {data['data']['enchants'][enchant]['levelMax']}"
+                label=f"{enchant}{f' {max_lvl}' if (max_lvl := int(data['data']['enchants'][enchant]['levelMax'])) > 1 else ''}"
             ) for enchant, metadata in data['data']['enchants'].items()
             if item in metadata['items']
         ]
@@ -521,9 +521,17 @@ class EnchantmentsSelect(discord.ui.Select):
 
         enchants = []
         for value in self.values:
+            split_values = value.split(' ')
+            enchant_name = split_values[0]
+
+            if len(split_values) == 2:
+                lvl = int(split_values[1])
+            else:
+                lvl = 1
+
             enchants.append((
-                value.split(' ')[0],
-                int(value.split(' ')[1])
+                enchant_name,
+                lvl
             ))
 
         response = process(self.item, enchants, 'levels')
@@ -557,6 +565,7 @@ class EnchantmentsSelect(discord.ui.Select):
             # TODO make this nicer somehow
             string += f"\n-# **Cost**: {instruction[2]} levels ({instruction[3]} xp), **Prior Work Penalty**: {instruction[4]} levels\n"
             index += 1
+        string += f"**Total xp levels**: {sum([int(instruction[2]) for instruction in response['instructions']])}"
         await interaction.edit_original_response(
             content=string.strip('\n'),
             view=None,
