@@ -245,6 +245,29 @@ class Help(discord.Cog):
         # sending reply embed using our own function defined above
         await send_embed(ctx, emb)
 
+    @discord.slash_command(
+        name="about",
+        description="Some info about the bot",
+    )
+    async def about_slash(
+        self,
+        ctx
+    ):
+        text = """MCPedia is a bot that integrates the [Minecraft Wiki](https://minecraft.wiki) into Discord. It also has some other features that are helpful for playing Minecraft.
+        For a full list of commands run the </help:1095358041005772840> command (Tip: You can click the command on the left to auto-fill into chat!)
+
+        If you have any feedback, cool ideas or found some bugs, head on over to our [Support Server](https://discord.gg/fyCxf6AAP9)!"""
+        embed = discord.Embed(
+            title=":sparkles: __About MCPedia__ :sparkles:",
+            color=discord.Color.purple(),
+            description=text,
+        )
+        embed.set_footer(
+            text="Made by malpkakefirek",
+            icon_url="https://cdn.discordapp.com/avatars/336475402535174154/7956850e66ba37e1f07d9cf757264e3e.webp"
+        )
+        await send_embed(ctx, embed)
+
 
 def setup(bot):
     bot.add_cog(Help(bot))
