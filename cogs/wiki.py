@@ -401,10 +401,14 @@ class Wiki(discord.Cog):
             info_rows = infobox.find_all('tr')
             for row in info_rows:
                 th = row.find('th')
+                if th is None:
+                    continue
                 header_text = th.get_text(' ', strip=True)
                 # print(th)
 
                 td = row.find('td')
+                if td is None:
+                    continue
 
                 # One time replacements
                 # links
