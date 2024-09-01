@@ -284,11 +284,9 @@ class SectionsSelect(discord.ui.Select):
         # original_response = await interaction.original_response()
         if len(embeds) > 1:
             await self.original_message.edit(embed=embeds[0], view=None)
+            # Send additional parts and add them to the parts list
             for embed in embeds[1:-1]:
-                # Send additional parts and add them to the parts list
-                middle = await interaction.respond(embed=embed)
-                print(f"middle: {middle} {type(middle)}")
-                self.parts.append(middle)
+                self.parts.append(await interaction.respond(embed=embed))
             self.parts.append(await interaction.respond(embed=embeds[-1], view=self.view))
         elif len(embeds) == 1:
             await self.original_message.edit(embed=embeds[0], view=self.view)
