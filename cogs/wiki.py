@@ -263,16 +263,39 @@ class SectionsSelect(discord.ui.Select):
         self.page = page
         self.embed = embed
         self.html = html
+        self.parts = []
+        self.original_message = None
 
     async def callback(self, interaction: discord.Interaction):
+        if self.original_message is None:
+            self.original_message = interaction.message
         embeds = createSectionEmbed(self.html, self.page, self.values[0], self.embed)
+
+        # Delete embeds that were part of the partitioning system
+        if len(self.parts) > 0:
+            for embed_response in self.parts:
+                if isinstance(embed_response, discord.Interaction):
+                    await embed_response.delete_original_response()
+                else:
+                    await embed_response.delete()
+            self.parts = []
+
+        # Send embeds
+        # original_response = await interaction.original_response()
         if len(embeds) > 1:
-            await interaction.response.edit_message(embed=embeds[0], view=None)
+            await self.original_message.edit(embed=embeds[0], view=None)
             for embed in embeds[1:-1]:
-                await interaction.followup.send(embed=embed)
-            await interaction.followup.send(embed=embeds[-1], view=self.view)
+                # Send additional parts and add them to the parts list
+                middle = await interaction.respond(embed=embed)
+                print(f"middle: {middle} {type(middle)}")
+                self.parts.append(middle)
+            self.parts.append(await interaction.respond(embed=embeds[-1], view=self.view))
+        elif len(embeds) == 1:
+            await self.original_message.edit(embed=embeds[0], view=self.view)
+            await interaction.edit(embed=embeds[0])
         else:
-            await interaction.response.edit_message(embed=embeds[0])
+            await self.original_message.edit("Something went wrong! Couldn't create the embed!", embed=None)
+            await interaction.edit(embed=embeds[0])
 
 
 class CraftingButton(discord.ui.Button):
