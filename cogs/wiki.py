@@ -1,6 +1,6 @@
 import re
 import discord
-from mediawiki import MediaWiki, MediaWikiException
+from mediawiki import MediaWiki, MediaWikiException, DisambiguationError
 from bs4 import BeautifulSoup as Soup
 
 from cogs.crafting import createCraftingGifs
@@ -366,10 +366,32 @@ class Wiki(discord.Cog):
                 )
                 await ctx.respond(embed=embed)
                 return
-            page_id = search_results[0]
-            page = wikipedia.page(page_id)
+            title = search_results[0]
+            page = wikipedia.page(title=title, auto_suggest=False)
         except MediaWikiException:
             await ctx.respond("We could not complete your search due to a temporary problem. Please try again later.")
+            return
+        except DisambiguationError as e:
+            print(f"[INFO] Found a Disambiguation '{e.title}' for search '{search}'")
+            referrals = []
+            for link in e.details:
+                if f"- {link['title']}" not in referrals:
+                    referrals.append(f"- {link['title']}")
+            referrals = '\n'.join(referrals)
+            if not referrals:
+                referrals = "Could not find any similar pages :cry:"
+            text = '\n'.join((
+                f"\"[{e.title}]({e.url})\" may refer to:",
+                referrals,
+                "You may search any of those using </wiki:1155638492278313051>!"
+            ))
+            embed = discord.Embed(
+                title="Disambiguation Error!",
+                description=text,
+                color=discord.Color.red(),
+            )
+            await ctx.respond(embed=embed)
+            print(f"[INFO] Successfully sent a Disambiguation '{e.title}'!")
             return
         print(f"[INFO] Found '{page.title}' for search '{search}'")
 
