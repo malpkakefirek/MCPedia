@@ -52,7 +52,7 @@ class Help(discord.Cog):
     ):
         prefix = "/"
         secondary_prefix = "m!"
-        version = "2.3"
+        version = "2.4"
 
         # setting owner name
         owner_name = "MCPedia Team"
