@@ -565,9 +565,20 @@ class EnchantmentsSelect(discord.ui.Select):
             # TODO make this nicer somehow
             string += f"\n-# **Cost**: {instruction[2]} levels ({instruction[3]} xp), **Prior Work Penalty**: {instruction[4]} levels\n"
             index += 1
-        string += f"**Total xp levels**: {sum([int(instruction[2]) for instruction in response['instructions']])}"
+        enchantments_string = ', '.join((
+            f"{enchant}{f' {level}' if level > 1 else ''}"
+            for enchant, level in enchants
+        ))
+        embed = discord.Embed(
+            title=f"Enchanting {self.item} with: {enchantments_string}",
+            description=string.strip(),
+            color=discord.Color.purple()
+        )
+        embed.set_footer(
+            text=f"Total xp levels: {sum([int(instruction[2]) for instruction in response['instructions']])}"
+        )
         await interaction.edit_original_response(
-            content=string.strip('\n'),
+            embed=embed,
             view=None,
         )
         # await ctx.respond(string.strip('\n'))
