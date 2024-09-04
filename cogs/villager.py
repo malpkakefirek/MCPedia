@@ -8,7 +8,7 @@ from io import BytesIO
 from mediawiki import MediaWiki
 from discord.ui import Button, View
 from bs4 import BeautifulSoup
-from PIL import Image
+# from PIL import Image
 
 wikipedia = MediaWiki(
     "https://minecraft.wiki/api.php",
@@ -25,7 +25,7 @@ def get_villagers():
     for section_title in page.table_of_contents:
         # if "Bedrock Edition offers" in section_title:  # Skip bedrock villagers until they get fixed.
         #     continue
-        if section_title not in ("Non-trading villagers", "Java Edition offers", "Wandering trader sales"):
+        if section_title not in ("Non-trading villagers", "Trade offers", "Wandering trader sales"):
             continue
         for sub_section_title in page.table_of_contents[section_title]:
             # Skip wandering traders until they get fixed.
@@ -59,7 +59,7 @@ def generate_url(title, columns, data_source):
     }
     table_data_str = json.dumps(table_data, separators=(',', ':'))
     # options:
-    options = """&options={"paddingVertical":20,"paddingHorizontal":20,"spacing":10,"backgroundColor":"%23eee","fontFamily":"mono","cellHeight":60}"""
+    options = r'&options={"paddingVertical":20,"paddingHorizontal":20,"spacing":10,"backgroundColor":"%2359b731","fontFamily":"mono","cellHeight":40}'  # "%23" = "#"
     url = f'https://api.quickchart.io/v1/table?data={table_data_str}{options}'
     return url
 
@@ -74,17 +74,18 @@ class VillagerInfoButton(Button):
         await interaction.response.defer(invisible=False)
         self.disabled = True
         await interaction.message.edit(view=self.view)
-        files = await villager_info(self.name)
-        if len(files) != 2:
+        file, job_site_name = await villager_info(self.name)
+        if file is None or job_site_name is None:
             await interaction.followup.send("ERROR!")
             return
-        embed = discord.Embed(
-            title=self.name,
-            color=discord.Color(43520),    # 00AA00 (dark green)
+        text = '\n'.join((
+            f"## {self.name}",
+            f"{self.name} needs \"{job_site_name}\""
+        ))
+        await interaction.respond(
+            text,
+            file=file
         )
-        embed.set_image(url=f"attachment://{files[0].filename}")
-        embed.set_thumbnail(url=f"attachment://{files[1].filename}")
-        await interaction.followup.send(embed=embed, files=files)
 
 
 class VillagerInfoView(View):
@@ -108,21 +109,23 @@ async def villager_info(profession):
         if span.get_text() == profession:
             start = h3
 
-    spritesheet_url = "https://static.wikia.nocookie.net/minecraft_gamepedia/images/d/df/BlockCSS.png/revision/latest?cb=20230409162508&version=1681057515007&format=original"
-    response = requests.get(spritesheet_url, timeout=10)
-    spritesheet = Image.open(BytesIO(response.content))
+    # spritesheet_url = "https://static.wikia.nocookie.net/minecraft_gamepedia/images/d/df/BlockCSS.png/revision/latest?cb=20230409162508&version=1681057515007&format=original"
+    # response = requests.get(spritesheet_url, timeout=10)
+    # spritesheet = Image.open(BytesIO(response.content))
 
     # Find the table corresponding to the profession
     table = None
-    job_site_image = None
+    # job_site_image = None
     for tag in start.next_siblings:
         if tag.name == "p":
             job_site_name = tag.find('a')['title']
-            job_site_url = "https://minecraft.wiki" + tag.find('img')['src']
-            response = requests.get(job_site_url, timeout=10)
-            job_site_image = Image.open(BytesIO(response.content)).convert('RGBA')
-        if tag.name == "table":
-            table = tag
+            # job_site_url = "https://minecraft.wiki" + tag.find('img')['src']
+            # response = requests.get(job_site_url, timeout=10)
+            # job_site_image = Image.open(BytesIO(response.content)).convert('RGBA')
+        if tag.name == "div":
+            table = tag.find('table')
+            if table is None:
+                continue
             break  # Stop after finding table
 
     # create job site block image
@@ -134,40 +137,32 @@ async def villager_info(profession):
     # job_site_image = spritesheet.crop((x, y, x + sprite_size, y + sprite_size))
 
     # pass job site block image into a discord.File object
-    bytes_image = BytesIO()
-    job_site_image.save(bytes_image, format='PNG')
-    bytes_image.seek(0)
-    job_site_file = discord.File(fp=bytes_image, filename=f'{job_site_name}.png')
+    # bytes_image = BytesIO()
+    # job_site_image.save(bytes_image, format='PNG')
+    # bytes_image.seek(0)
+    # job_site_file = discord.File(fp=bytes_image, filename=f'{job_site_name}.png')
 
     # extract the title from the data-description attribute of the table tag
-    title = table['data-description']
+    title = table.find('th').string
 
     # find the table header row
     columns = [
         {
-            "width": 100,
+            "width": 150,
             "title": "Level",
             "dataIndex": "level"
         }, {
-            "width": 150,
+            "width": 250,
             "title": "Item wanted",
             "dataIndex": 0
         }, {
-            "width": 140,
-            "title": "Amount",
+            "width": 300,
+            "title": "Item given",
             "dataIndex": 1
         }, {
-            "width": 175,
-            "title": "Item given",
-            "dataIndex": 3
-        }, {
-            "width": 80,
-            "title": "Amount",
-            "dataIndex": 4
-        }, {
-            "width": 185,
-            "title": "Trades until disabled",
-            "dataIndex": 5
+            "width": 150,
+            "title": "Trades in stock",
+            "dataIndex": 2
         }
     ]
 
@@ -177,53 +172,33 @@ async def villager_info(profession):
     # extract cell data
     data = []
     current_level = None
-    for row in body_rows[2:]:
+    for row in body_rows[3:]:
         try:
             if not row.find('th').get_text().strip().isnumeric():
                 current_level = row.find('th').get_text().strip()
         except Exception:
             pass
 
-        cells = row.find_all('td')
-        item_cell = cells[0]
-        item_links = item_cell.find_all('a')
-
-        # Single item
-        if len(item_links) == 1:
-            data.append('-')
-            data.append({
-                'level': current_level,
-                **{
-                    i: re.sub(r'\[note [0-9]+\]', '', td.text.strip())
-                    for i, td in enumerate(cells)
-                    if i not in [2, 6]
-                }
-            })
+        # only include items, and trades in stock [2,3,4]
+        cells = row.find_all('td')[2:5]
+        if not cells:
             continue
 
-        # Multiple items with the same name
         data.append('-')
         data.append({
             'level': current_level,
-            0: "\n".join([item.text for item in item_links]).strip(),
-            1: "\n".join([child for child in cells[1].children if not child.name]).replace('\u2013', '–').strip(),
             **{
-                j+2: re.sub(r'\[note [0-9]+\]', '', cells[j+2].text.strip())
-                for j in range(len(cells)-2)
-                if j+2 not in [2, 6]
+                i: re.sub(r'\[t [0-9]+\]', '', td.text.strip()).replace('+', ' %2B')
+                for i, td in enumerate(cells)
             }
         })
 
-    # print(title)
-    # print(columns)
-    # print(data)
     url = generate_url(title, columns, data)
-
     response = requests.get(url, timeout=10)
     with BytesIO(response.content) as image_binary:
         image_binary.seek(0)
         file = discord.File(fp=image_binary, filename='villager_trade.png')
-    return (file, job_site_file)
+    return (file, job_site_name)
 
 
 # Main class
@@ -237,6 +212,7 @@ class Villager(commands.Cog):
         name="trades",
         description="Commands about trading",
     )
+
 
     @trade_group.command(
         name="villager",
@@ -260,17 +236,25 @@ class Villager(commands.Cog):
             return
         await ctx.defer()
 
-        files = await villager_info(profession)
-        if len(files) != 2:
+        file, job_site_name = await villager_info(profession)
+        if file is None or job_site_name is None:
             await ctx.respond("ERROR!")
             return
-        embed = discord.Embed(
-            title=profession,
-            color=discord.Color(43520),    # 00AA00 (dark green)
+        # embed = discord.Embed(
+        #     title=profession,
+        #     color=discord.Color(43520),    # 00AA00 (dark green)
+        # )
+        # embed.set_image(url=f"attachment://{files[0].filename}")
+        # embed.set_thumbnail(url=f"attachment://{files[1].filename}")
+        text = '\n'.join((
+            f"## {profession}",
+            f"{profession} needs \"{job_site_name}\""
+        ))
+        await ctx.respond(
+            text,
+            file=file
         )
-        embed.set_image(url=f"attachment://{files[0].filename}")
-        embed.set_thumbnail(url=f"attachment://{files[1].filename}")
-        await ctx.respond(files=files, embed=embed)
+
 
 
     @trade_group.command(
