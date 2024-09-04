@@ -55,7 +55,7 @@ class Help(discord.Cog):
         version = "2.4"
 
         # setting owner name
-        owner_name = "MCPedia Team"
+        owner_name = "malpkakefirek"
         # avatar = self.bot.get_user(owner_id).avatar.ur
 
         # checks if cog parameter was given
