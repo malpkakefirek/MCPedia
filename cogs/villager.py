@@ -109,43 +109,18 @@ async def villager_info(profession):
         if span.get_text() == profession:
             start = h3
 
-    # spritesheet_url = "https://static.wikia.nocookie.net/minecraft_gamepedia/images/d/df/BlockCSS.png/revision/latest?cb=20230409162508&version=1681057515007&format=original"
-    # response = requests.get(spritesheet_url, timeout=10)
-    # spritesheet = Image.open(BytesIO(response.content))
-
     # Find the table corresponding to the profession
     table = None
-    # job_site_image = None
     for tag in start.next_siblings:
         if tag.name == "p":
             job_site_name = tag.find('a')['title']
-            # job_site_url = "https://minecraft.wiki" + tag.find('img')['src']
-            # response = requests.get(job_site_url, timeout=10)
-            # job_site_image = Image.open(BytesIO(response.content)).convert('RGBA')
         if tag.name == "div":
             table = tag.find('table')
             if table is None:
                 continue
             break  # Stop after finding table
 
-    # create job site block image
-    # position_match = re.search(r'background-position:\s*(-?\d+)px\s*(-?\d+)px', job_site_image)
-    # x, y = map(int, position_match.groups())
-    # x = abs(x)
-    # y = abs(y)
-    # sprite_size = 16
-    # job_site_image = spritesheet.crop((x, y, x + sprite_size, y + sprite_size))
-
-    # pass job site block image into a discord.File object
-    # bytes_image = BytesIO()
-    # job_site_image.save(bytes_image, format='PNG')
-    # bytes_image.seek(0)
-    # job_site_file = discord.File(fp=bytes_image, filename=f'{job_site_name}.png')
-
-    # extract the title from the data-description attribute of the table tag
     title = table.find('th').string
-
-    # find the table header row
     columns = [
         {
             "width": 150,
@@ -240,12 +215,7 @@ class Villager(commands.Cog):
         if file is None or job_site_name is None:
             await ctx.respond("ERROR!")
             return
-        # embed = discord.Embed(
-        #     title=profession,
-        #     color=discord.Color(43520),    # 00AA00 (dark green)
-        # )
-        # embed.set_image(url=f"attachment://{files[0].filename}")
-        # embed.set_thumbnail(url=f"attachment://{files[1].filename}")
+
         text = '\n'.join((
             f"## {profession}",
             f"{profession} needs \"{job_site_name}\""
@@ -277,33 +247,38 @@ class Villager(commands.Cog):
 
         name_item = dict()
         soup = BeautifulSoup(page.html, 'html.parser')
-        note_pattern = r"\[note \d+\]"
-        for subsection_title in page.table_of_contents['Java Edition offers']:    # Skipping Bedrock Edition and Wandering Traders
+        note_pattern = r"\[t \d+\]"
+        for subsection_title in page.table_of_contents['Trade offers']:    # Skipping Wandering Traders
             print(subsection_title)
             my_string = []
-            table = soup.find('table', attrs={'data-description': f'{subsection_title} trades'})
+            table = soup.find(
+                'th',
+                attrs={'data-description': subsection_title}
+            ).parent.parent
             if not table:
                 continue
             # Convert table to list of strings
             for row in table.find_all('tr'):
                 cells = row.find_all('td')
+                if cells is None:
+                    continue
                 if len(cells) < 4:
                     continue
 
-                item_wanted = cells[0].stripped_strings
                 cell_contents = []
+                item_wanted = cells[2].stripped_strings
                 for string in item_wanted:
                     if not re.search(note_pattern, string):
-                        cell_contents.append(string)
+                        cell_contents.append(re.sub(r'\[t [0-9]+\]', '', string))
                 my_string.append(' '.join(cell_contents))
 
                 cell_contents = []
                 item_given = cells[3].stripped_strings
                 for string in item_given:
                     if not re.search(note_pattern, string):
-                        cell_contents.append(string)
-
+                        cell_contents.append(re.sub(r'\[t [0-9]+\]', '', string))
                 my_string.append(' '.join(cell_contents))
+
             for string in my_string:
                 # # skip wandering traders
                 # if subsection_title in ['Java Edition sales', 'Bedrock Edition sales']:
