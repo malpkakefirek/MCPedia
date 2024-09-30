@@ -92,8 +92,6 @@ class Tools(discord.Cog):
         height = str(height)
 
         for d, h in fall_data.items():
-            print(height)
-            print(h)
             if height in h:
                 await ctx.respond(f"Falling from {height} blocks takes {d} damage")
                 return
