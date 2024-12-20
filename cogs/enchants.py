@@ -578,6 +578,7 @@ class EnchantmentsSelect(discord.ui.Select):
             text=f"Total xp levels: {sum([int(instruction[2]) for instruction in response['instructions']])}"
         )
         await interaction.edit_original_response(
+            content=None,
             embed=embed,
             view=None,
         )
