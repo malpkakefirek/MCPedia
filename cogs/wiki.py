@@ -5,7 +5,10 @@ from bs4 import BeautifulSoup as Soup
 
 from cogs.crafting import createCraftingGifs
 
-wikipedia = MediaWiki("https://minecraft.wiki/api.php", user_agent="MCPediaDiscordBot/2.4 (https://minecraft.wiki/w/User:Malpkakefirek; https://github.com/malpkakefirek) pymediawiki/0.7.3")
+wikipedia = MediaWiki(
+    "https://minecraft.wiki/api.php",
+    user_agent="MCPediaDiscordBot/2.5 (https://minecraft.wiki/w/User:Malpkakefirek; https://github.com/malpkakefirek) pymediawiki/0.7.3"
+)
 
 
 def getEmbedThumbnailUrl(embed):

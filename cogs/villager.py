@@ -12,7 +12,7 @@ from bs4 import BeautifulSoup
 
 wikipedia = MediaWiki(
     "https://minecraft.wiki/api.php",
-    user_agent="MCPediaDiscordBot/2.1 (https://minecraft.wiki/w/User:Malpkakefirek; https://github.com/malpkakefirek) pymediawiki/0.7.3"
+    user_agent="MCPediaDiscordBot/2.5 (https://minecraft.wiki/w/User:Malpkakefirek; https://github.com/malpkakefirek) pymediawiki/0.7.3"
 )
 
 
