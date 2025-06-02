@@ -1,6 +1,30 @@
 import json
 import discord
 import math
+import uuid
+import hashlib
+import aiohttp
+import asyncio
+
+
+def generate_minecraft_offline_uuid(username: str) -> uuid.UUID:
+    name = f"OfflinePlayer:{username}"
+    md5_hash = hashlib.md5(name.encode('utf-8')).digest()
+    # Set the UUID version to 3 (name-based MD5)
+    md5_hash = bytearray(md5_hash)
+    md5_hash[6] = (md5_hash[6] & 0x0F) | 0x30  # Version 3
+    md5_hash[8] = (md5_hash[8] & 0x3F) | 0x80  # Variant RFC 4122
+    return uuid.UUID(bytes=bytes(md5_hash))
+
+
+async def get_minecraft_profile(username: str) -> str:
+    url = f"https://api.minecraftservices.com/minecraft/profile/lookup/name/{username}"
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as resp:
+            if resp.status == 200:
+                return await resp.json()
+            else:
+                return None
 
 
 class Tools(discord.Cog):
@@ -100,6 +124,53 @@ class Tools(discord.Cog):
         #     title=f'{amount} items equals to:',
         #     color=0x3498db  # blue color
         # )
+
+
+    @discord.slash_command(
+        name="uuid",
+        description="Get UUID of a Minecraft player",
+    )
+    async def uuid(
+        self,
+        ctx,
+        username: discord.commands.Option(
+            str,
+            description="Username of the player",
+            required=True,
+        )
+    ):
+        hyphen_offline_uuid = str(generate_minecraft_offline_uuid(username))
+        clean_offline_uuid = hyphen_offline_uuid.replace('-', '')
+
+        online_profile = await get_minecraft_profile(username)
+        if online_profile is None:
+            clean_online_uuid = None
+            hyphen_online_uuid = None
+        else:
+            clean_online_uuid = online_profile['id']
+            hyphen_online_uuid = f"{clean_online_uuid[0:8]}-{clean_online_uuid[8:12]}-{clean_online_uuid[12:16]}-{clean_online_uuid[16:20]}-{clean_online_uuid[20:]}"
+            username = online_profile['name']
+
+        description = ""
+        description += f":green_circle: **Online UUID:** `{clean_online_uuid}`\n" if clean_online_uuid else ""
+        description += f":green_circle: **Online UUID hyphenated:** `{hyphen_online_uuid}`\n" if hyphen_online_uuid else ""
+        description += f":white_circle: **Offline UUID:** `{clean_offline_uuid}`\n"
+        description += f":white_circle: **Offline UUID hyphenated:** `{hyphen_offline_uuid}`\n"
+        description.strip()
+
+        embed = discord.Embed(
+            title=f"{username}" if clean_online_uuid else f"{username} (Offline)",
+            description=description,
+            color=0x3498db  # blue color
+        )
+
+        if clean_online_uuid:
+            embed.set_thumbnail(url=f"https://api.mineatar.io/face/{clean_online_uuid}")
+        else:
+            embed.set_thumbnail(url="https://api.mineatar.io/face/00000000000000000000000000000000")
+
+        await ctx.respond(embed=embed)
+        return
 
 
 def setup(bot):
