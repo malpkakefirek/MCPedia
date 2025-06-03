@@ -4,7 +4,6 @@ import math
 import uuid
 import hashlib
 import aiohttp
-import asyncio
 
 
 def generate_minecraft_offline_uuid(username: str) -> uuid.UUID:
