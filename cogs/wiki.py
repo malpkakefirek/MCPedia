@@ -322,8 +322,9 @@ class SectionsView(discord.ui.View):
             self.add_item(SectionsSelect(html, page, sections, embed))
 
         subsections = [
-            subsection_title for subsection_title in page.table_of_contents.values()
-            if subsection_title
+            subsection_title
+            for subsection_titles in page.table_of_contents.values()
+            for subsection_title in subsection_titles
         ]
         if 'Crafting' in subsections:
             self.add_item(CraftingButton(html))

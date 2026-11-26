@@ -95,30 +95,64 @@ class VillagerInfoView(View):
             self.add_item(VillagerInfoButton(name=villager, label=f"View {villager} trades"))
 
 
+def find_profession_section(soup, title):
+    """Find a profession's heading, trade table and job-site link.
+
+    The wiki has used both ``<h3><span>Name</span></h3>`` and, more recently,
+    ``<div class="mw-heading"><h3 id="Name">Name</h3></div>`` followed by the
+    table as a direct sibling.  Older trade tables are marked with a
+    ``data-description`` attribute instead.
+    """
+    heading = None
+    for h3 in soup.find_all("h3"):
+        span = h3.find("span")
+        label = (span.get_text() if span else h3.get("id") or h3.get_text(" ", strip=True))
+        label = label.split('[')[0].strip()
+        if label == title:
+            heading = h3
+            break
+
+    table = None
+    job_site_name = None
+    if heading is not None:
+        parent = heading.parent
+        start = parent if parent is not None and 'mw-heading' in (parent.get('class') or []) else heading
+        for tag in start.next_siblings:
+            if getattr(tag, 'name', None) == 'p' and job_site_name is None:
+                # The job-site link comes after the profession's own link in
+                # current wiki markup; ignore self-links and special pages.
+                links = [
+                    link['title'] for link in tag.find_all('a', title=True)
+                    if link['title'].lower() != title.lower()
+                    and not link['title'].startswith('Special:')
+                ]
+                if links:
+                    job_site_name = links[-1]
+            if getattr(tag, 'name', None) == 'div':
+                table = tag.find('table')
+                if table is None:
+                    continue
+            elif getattr(tag, 'name', None) == 'table':
+                table = tag
+            if table is not None:
+                break
+
+    if table is None:
+        marker = soup.find('th', attrs={'data-description': title})
+        if marker is not None:
+            table = marker.parent.parent
+    return table, job_site_name
+
+
 async def villager_info(profession):
     page_id = wikipedia.search("Trading", results=1)[0]
     page = wikipedia.page(page_id)
     html = page.html
     soup = BeautifulSoup(html, 'html.parser')
 
-    start = None
-    for h3 in soup.find_all("h3"):
-        span = h3.find("span")
-        if not span:
-            continue
-        if span.get_text() == profession:
-            start = h3
-
-    # Find the table corresponding to the profession
-    table = None
-    for tag in start.next_siblings:
-        if tag.name == "p":
-            job_site_name = tag.find('a')['title']
-        if tag.name == "div":
-            table = tag.find('table')
-            if table is None:
-                continue
-            break  # Stop after finding table
+    table, job_site_name = find_profession_section(soup, profession)
+    if table is None or job_site_name is None:
+        return (None, None)
 
     title = table.find('th').string
     columns = [
@@ -144,15 +178,17 @@ async def villager_info(profession):
     # find table body rows
     body_rows = table.find('tbody').find_all('tr')
 
-    # extract cell data
+    # extract cell data; header rows are skipped instead of relying on a
+    # fixed offset, which changes whenever the wiki adds a column.
     data = []
     current_level = None
-    for row in body_rows[3:]:
-        try:
-            if not row.find('th').get_text().strip().isnumeric():
-                current_level = row.find('th').get_text().strip()
-        except Exception:
-            pass
+    for row in body_rows:
+        header = row.find('th')
+        level_text = header.get_text(' ', strip=True) if header else ''
+        if level_text in ('Level', 'JE', 'BE', 'header') or level_text.isnumeric():
+            continue
+        if level_text:
+            current_level = level_text
 
         # only include items, and trades in stock [2,3,4]
         cells = row.find_all('td')[2:5]
@@ -251,10 +287,7 @@ class Villager(commands.Cog):
         for subsection_title in page.table_of_contents['Trade offers']:    # Skipping Wandering Traders
             print(subsection_title)
             my_string = []
-            table = soup.find(
-                'th',
-                attrs={'data-description': subsection_title}
-            ).parent.parent
+            table, _ = find_profession_section(soup, subsection_title)
             if not table:
                 continue
             # Convert table to list of strings

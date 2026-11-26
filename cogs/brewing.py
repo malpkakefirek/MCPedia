@@ -18,8 +18,8 @@ class Brewing(discord.Cog):
         embed = discord.Embed(
             # title=f'{amount} items equals to:',
             color=discord.Color.purple(),
-            image="https://minecraft.wiki/images/Minecraft_brewing_en.png"
         )
+        embed.set_image(url="https://minecraft.wiki/images/Minecraft_brewing_en.png")
 
         await ctx.respond(embed=embed)
         return
