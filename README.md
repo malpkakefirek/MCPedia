@@ -39,3 +39,4 @@ MCPEDIA_RUN_INTEGRATION=1 pytest -m integration
 
 These are intentionally sensitive to wiki changes: a failure means the wiki
 markup or API contract drifted and a parser needs updating.
+Bot won't be publicly available for the time being, as I don't have a host for it. Once I got time to look into hosting options, I will cleanup the repo from unnecesseary files and hopefully open the bot to the public
