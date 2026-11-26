@@ -125,6 +125,29 @@ class TestWikiApiContracts:
         assert len(selects) == 1
         assert selects[0].options
 
+    @pytest.mark.parametrize(
+        "phrase", ["Dirt", "Villager", "Ender Dragon", "Redstone circuits/Clock"]
+    )
+    async def test_section_embeds_obey_discord_limits(self, ctx, phrase):
+        # Wiki markup regularly introduces image-only cells and very long
+        # sections; neither may produce an embed Discord would reject.
+        await wiki.Wiki.wiki_search.callback(wiki.Wiki(None), ctx, phrase)
+        assert all(field.value for field in ctx.embed.fields)
+        view = ctx.calls_named("respond")[0][2]["view"]
+        select = next(child for child in view.children if isinstance(child, wiki.SectionsSelect))
+        sections = ["Info"] + [option.label for option in select.options if option.label != "Info"]
+        for section in sections:
+            embeds = wiki.createSectionEmbed(select.html, select.page, section, select.embed)
+            assert embeds
+            for embed in embeds:
+                assert len(embed.fields) <= wiki.MAX_FIELDS
+                assert all(
+                    field.value and len(field.value) <= wiki.MAX_FIELD_CHARS
+                    for field in embed.fields
+                )
+                assert len(embed.description or "") <= wiki.MAX_DESCRIPTION_CHARS
+                assert wiki._embed_size(embed) <= wiki.MAX_EMBED_CHARS
+
 
 class TestCraftingApiContracts:
     def test_recipe_table_and_grid_classes(self, stick_page):

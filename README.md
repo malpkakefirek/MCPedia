@@ -29,9 +29,10 @@ against the real Minecraft Wiki API (search results, table-of-contents shape,
 infobox/crafting-grid markup and villager trade tables). It also runs `/wiki`
 end to end for a range of phrases that produce different content types —
 disambiguations (`gold`), mobs, items, blocks, biomes, dimensions, mechanics,
-people, redstone and commands — asserting the resolved page title and the
-expected embed/select structure. They are skipped by default so normal test
-runs stay offline; opt in with:
+people, redstone and commands — asserting the resolved page title, the
+expected embed/select structure, and that every generated section embed obeys
+Discord's field/size limits. They are skipped by default so normal test runs
+stay offline; opt in with:
 
 ```sh
 MCPEDIA_RUN_INTEGRATION=1 pytest -m integration

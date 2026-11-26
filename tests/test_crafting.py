@@ -118,5 +118,5 @@ class TestCraftingCommand:
             await crafting.Crafting.crafting.callback(crafting.Crafting(None), ctx, "dirt")
         responses = ctx.calls_named("respond")
         assert len(responses) == 2
-        assert len(responses[0][2]["files"]) == 9
-        assert len(responses[1][2]["files"]) == 2
+        assert [file.name for file in responses[0][2]["files"]] == [str(i) for i in range(10)]
+        assert [file.name for file in responses[1][2]["files"]] == ["10", "11"]

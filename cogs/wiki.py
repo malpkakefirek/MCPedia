@@ -1,14 +1,31 @@
+"""Slash command and helpers for looking up Minecraft Wiki pages."""
+
+import asyncio
+import logging
 import re
+
 import discord
-from mediawiki import MediaWiki, MediaWikiException, DisambiguationError
 from bs4 import BeautifulSoup as Soup
+from mediawiki import MediaWiki, MediaWikiException, DisambiguationError
 
 from cogs.crafting import createCraftingGifs
+
+logger = logging.getLogger(__name__)
 
 wikipedia = MediaWiki(
     "https://minecraft.wiki/api.php",
     user_agent="MCPediaDiscordBot/2.5 (https://minecraft.wiki/w/User:Malpkakefirek; https://github.com/malpkakefirek) pymediawiki/0.7.3"
 )
+
+# Discord's hard limits for embeds.
+MAX_EMBED_CHARS = 6000
+MAX_DESCRIPTION_CHARS = 4096
+MAX_FIELD_CHARS = 1024
+MAX_FIELDS = 25
+
+_WHITESPACE_RE = re.compile(r"( ?\n+ +)|( ?\n+ ?)")
+_SPECIAL_SPACE_RE = re.compile("\u00A0|\u200B|\u200C")
+_SPRITE_ALT_RE = re.compile(r"Sprite image for (.+?) in Minecraft", re.IGNORECASE)
 
 
 def getEmbedThumbnailUrl(embed):
@@ -17,239 +34,195 @@ def getEmbedThumbnailUrl(embed):
     return None
 
 
-def createSectionEmbed(html, page, section_title: str, old_embed: discord.Embed):
-    embeds = []
+def _clean_text(text):
+    """Collapse wiki whitespace and turn injected ``<br>`` markers into newlines."""
+    return _SPECIAL_SPACE_RE.sub(" ", _WHITESPACE_RE.sub("", text)).replace("<br>", "\n")
 
-    if section_title == 'Info':
-        embed = discord.Embed(
-            title=old_embed.title,
-            description=page.summarize(),
-            url=old_embed.url,
-            color=old_embed.color
-        )
-        embeds.append(embed)
-        embed.set_thumbnail(url=getEmbedThumbnailUrl(old_embed))
 
-        # Experimental infobox
-        infobox = html.find(class_='infobox-rows')
-        if infobox:
-            # info_text = ""
-            info_rows = infobox.find_all('tr')
-            for row in info_rows:
-                th = row.find('th')
-                header_text = th.get_text(' ', strip=True)
-                # print(th)
+def _image_only_label(element):
+    """Readable fallback for cells/links that contain no text, only an image."""
+    for image in element.find_all("img"):
+        alt = image.get("alt") or ""
+        match = _SPRITE_ALT_RE.search(alt)
+        if match:
+            return match.group(1)
+        if image.get("title"):
+            return image["title"]
+        if alt and len(alt) <= 2:
+            return alt
+    for tag in element.find_all(attrs={"title": True}):
+        if tag.get("title"):
+            return tag["title"]
+    return ""
 
-                td = row.find('td')
 
-                # String manipulation
-                sprite = td.find(class_='sprite')
-                if sprite and "title" in sprite.attrs:
-                    data_text = sprite['title']
+def _set_text(tag, text):
+    """Replace a tag's contents with plain text, even when it has no single string."""
+    if tag.string is not None:
+        tag.string.replace_with(text)
+    else:
+        tag.clear()
+        tag.append(text)
+
+
+def format_infobox_fields(infobox):
+    """Convert an ``infobox-rows`` table into Discord field pairs.
+
+    The wiki markup is edited in place to inject markdown, so this works on a
+    private copy.  Selecting "Info" repeatedly therefore cannot stack bold or
+    link markers on top of each other.
+    """
+    if infobox is None:
+        return []
+
+    table = Soup(str(infobox), "html.parser")
+    fields = []
+
+    for row in table.find_all("tr"):
+        th = row.find("th")
+        td = row.find("td")
+        if th is None or td is None:
+            continue
+        header = th.get_text(" ", strip=True)
+        if not header:
+            continue
+
+        # Links -> markdown. get_text handles links with nested spans/icons.
+        for link in td.find_all("a"):
+            href = link.get("href")
+            if not href:
+                continue
+            label = link.get_text("", strip=True) or _image_only_label(link)
+            if not label:
+                # Image-only links are left alone so the icon handling below
+                # can still turn them into a readable glyph.
+                continue
+            prefix = "" if href.startswith(("http://", "https://")) else "https://minecraft.wiki"
+            link.replace_with(f"[{label}](<{prefix}{href}>)")
+
+        # Footnote markers such as "[note 1]" are noise in a Discord embed.
+        for note in td.find_all("sup", class_="reference"):
+            note.decompose()
+
+        # Short alt text carries meaning (edition badges, hearts, shields).
+        for image in td.find_all("img"):
+            alt = image.get("alt") or ""
+            if alt and len(alt) <= 2:
+                image.append(alt)
+
+        for br in td.find_all("br"):
+            br.append("<br>")
+        for tag in td.find_all(["p", "li"]):
+            tag.append("<br>")
+
+        # Wrap the whole element: italic/bold often contains a link or span,
+        # so replacing .string alone silently dropped the formatting.
+        for italic in td.find_all(["i", "em"]):
+            italic.insert(0, "*")
+            italic.append("*")
+        for bold in td.find_all(["b", "strong"]):
+            bold.insert(0, "**")
+            bold.append("**")
+
+        # Hearts and armor icons do not have useful alt text.
+        for hearts in row.find_all(class_="mc-hearts"):
+            has_empty = False
+            for heart in hearts.find_all("img"):
+                src = heart.get("src", "").lower()
+                if "empty" in src:
+                    heart.replace_with("")
+                    has_empty = True
+                elif "half" in src:
+                    heart.replace_with("♡")
                 else:
-                    data_text = ''.join([
-                        re.sub("( ?\n+ +)|( ?\n+ ?)", "", text).replace("<br>", "\n") for text in td.strings
-                        if text.strip()
-                    ]).strip()
-                # print(repr(data_text))
+                    heart.replace_with("❤️")
+            # Keep the wiki's "× 10" text; only wrap the icons in parentheses.
+            if not has_empty:
+                hearts.insert(0, " (")
+                hearts.append(")")
+        for armor in row.find_all(class_="iconbar"):
+            if "heart" in armor.get("title", "").lower():
+                continue
+            for icon in armor.find_all("img"):
+                if "half" in icon.get("src", "").lower():
+                    _set_text(icon, "½🛡️")
 
-                embed.add_field(
-                    name=header_text,
-                    value=data_text,
-                    inline=False
-                )
-                # if "🛡" in data_text:
-                #     embed.set_footer(text="Note: There is no 'half an armor' emoji, so it is represented the same as full!")
+        data_text = "".join(_clean_text(text) for text in td.strings).strip()
+        if not data_text:
+            data_text = _image_only_label(td) or "—"
+        fields.append((header, data_text[:MAX_FIELD_CHARS]))
+
+    return fields
+
+
+def _make_embed(old_embed, title, url=None, description=None):
+    embed = discord.Embed(
+        title=title[:256],
+        url=url,
+        color=old_embed.color,
+        description=(description or "")[:MAX_DESCRIPTION_CHARS] or None,
+    )
+    thumbnail = getEmbedThumbnailUrl(old_embed)
+    if thumbnail:
+        embed.set_thumbnail(url=thumbnail)
+    return embed
+
+
+def _part_title(title, part):
+    return title if part == 1 else f"{title} Part {part}"
+
+
+def _embed_size(embed):
+    """py-cord's len() fails when an embed has no description, so measure it here."""
+    return (len(embed.title or "") + len(embed.description or "")
+            + sum(len(field.name or "") + len(field.value or "") for field in embed.fields))
+
+
+def _add_field(embeds, old_embed, title, url, name, value):
+    """Add a field, starting a new embed when Discord's limits are reached."""
+    if not value:
+        return
+    value = value[:MAX_FIELD_CHARS]
+    name = (name or "Info")[:256]
+    embed = embeds[-1]
+    if (len(embed.fields) >= MAX_FIELDS
+            or _embed_size(embed) + len(name) + len(value) + 8 > MAX_EMBED_CHARS):
+        embed = _make_embed(old_embed, _part_title(title, len(embeds) + 1), url)
+        embeds.append(embed)
+    embed.add_field(name=name, value=value, inline=False)
+
+
+def _chunks(text, size):
+    return [text[i:i + size] for i in range(0, len(text), size)]
+
+
+def createSectionEmbed(html, page, section_title: str, old_embed: discord.Embed):
+    """Build one or more embeds for a section chosen from the wiki select menu."""
+    if section_title == "Info":
+        # The original embed already holds the summary; avoid a second API call.
+        summary = old_embed.description or page.summarize() or ""
+        embeds = [_make_embed(old_embed, old_embed.title, old_embed.url, summary)]
+        infobox = html.find(class_="infobox-rows") if html is not None else None
+        for name, value in format_infobox_fields(infobox):
+            _add_field(embeds, old_embed, old_embed.title, old_embed.url, name, value)
         return embeds
 
-    # There are subsections
-    if page.table_of_contents[section_title]:
-        section_content = page.section(section_title)
-        if not section_content:
-            section_content = ""
+    title = old_embed.title + " - " + section_title
+    url = old_embed.url + "#" + section_title.replace(" ", "_")
+    embeds = [_make_embed(old_embed, title, url)]
 
-        if len(section_content) > 4096:
-            description = section_content[:4096]
-            section_content = section_content[4096:]
-        else:
-            description = section_content
-            section_content = None
+    section_text = page.section(section_title) or ""
+    embeds[0].description = section_text[:MAX_DESCRIPTION_CHARS]
+    for chunk in _chunks(section_text[MAX_DESCRIPTION_CHARS:], MAX_FIELD_CHARS):
+        _add_field(embeds, old_embed, title, url, section_title, chunk)
 
-        embed = discord.Embed(
-            title=old_embed.title + " - " + section_title,
-            url=old_embed.url + "#" + section_title.replace(" ", "_"),
-            color=old_embed.color,
-            description=description
-        )
-        embed.set_thumbnail(url=getEmbedThumbnailUrl(old_embed))
-        embeds.append(embed)
-        # print(f"AAA: {len(embed)}")
+    for subsection_title in (page.table_of_contents.get(section_title) or ()):
+        subsection_text = page.section(subsection_title) or ""
+        for chunk in _chunks(subsection_text, MAX_FIELD_CHARS):
+            _add_field(embeds, old_embed, title, url, subsection_title, chunk)
 
-        embed_number = 2
-        # If description is too big, send the rest of it to fields
-        if section_content:
-            while len(section_content) > 1024:
-                embed.add_field(
-                    name=section_title,
-                    value=section_content[:1024],
-                    inline=False
-                )
-                # print(f"222: {len(embed)}")
-                if len(embed) > 6000:
-                    embed.remove_field(len(embed.fields)-1)
-                    # print(f"BBB: {len(embed)}")
-                    embed = discord.Embed(
-                        title=old_embed.title + " - " + section_title + " Part " + embed_number,
-                        url=old_embed.url + "#" + section_title.replace(" ", "_"),
-                        color=old_embed.color
-                    )
-                    embeds.append(embed)
-                    embed.add_field(
-                        name=section_title,
-                        value=section_content[:1024],
-                        inline=False
-                    )
-                    embed_number += 1
-                    # print(f"CCC: {len(embed)}")
-                section_content = section_content[1024:]
-            embed.add_field(
-                name=section_title,
-                value=section_content,
-                inline=False
-            )
-            # print(f"DDD: {len(embed)}")
-            if len(embed) > 6000:
-                embed.remove_field(len(embed.fields)-1)
-                # print(f"EEE: {len(embed)}")
-                embed = discord.Embed(
-                    title=old_embed.title + " - " + section_title,
-                    url=old_embed.url + "#" + section_title.replace(" ", "_"),
-                    color=old_embed.color
-                )
-                embeds.append(embed)
-                embed.add_field(
-                    name=section_title,
-                    value=section_content,
-                    inline=False
-                )
-                # print(f"FFF: {len(embed)}")
-
-        # Send subsections to fields
-        for subsection_title in page.table_of_contents[section_title]:
-            subsection_text = page.section(subsection_title)
-            if not subsection_text:
-                continue
-            while len(subsection_text) > 1024:
-                embed.add_field(
-                    name=subsection_title,
-                    value=subsection_text[:1024],
-                    inline=False
-                )
-                # print(f"GGG: {len(embed)}")
-                if len(embed) > 6000:
-                    embed.remove_field(len(embed.fields)-1)
-                    # print(f"HHH: {len(embed)}")
-                    embed = discord.Embed(
-                        title=old_embed.title + " - " + section_title + " Part " + str(embed_number),
-                        url=old_embed.url + "#" + section_title.replace(" ", "_"),
-                        color=old_embed.color,
-                    )
-                    embeds.append(embed)
-                    embed.add_field(
-                        name=subsection_title,
-                        value=subsection_text[:1024],
-                        inline=False
-                    )
-                    embed_number += 1
-                    # print(f"III: {len(embed)}")
-                subsection_text = subsection_text[1024:]
-            embed.add_field(
-                name=subsection_title,
-                value=subsection_text,
-                inline=False
-            )
-            # print(f"JJJ: {len(embed)}")
-            if len(embed) > 6000:
-                embed.remove_field(len(embed.fields)-1)
-                # print(f"KKK: {len(embed)}")
-                embed = discord.Embed(
-                    title=old_embed.title + " - " + section_title + " Part " + str(embed_number),
-                    url=old_embed.url + "#" + section_title.replace(" ", "_"),
-                    color=old_embed.color,
-                )
-                embeds.append(embed)
-                embed.add_field(
-                    name=subsection_title,
-                    value=subsection_text,
-                    inline=False
-                )
-                embed_number += 1
-                # print(f"LLL: {len(embed)}")
-
-        # Add " Part 1" to the title of the first embed, if there are multiple embeds
-        if len(embeds) > 1:
-            embeds[0].title = embeds[0].title + " Part 1"
-    # No subsections
-    else:
-        section_content = page.section(section_title)
-
-        if len(section_content) > 4096:
-            description = section_content[:4096]
-            section_content = section_content[4096:]
-        else:
-            description = section_content
-            section_content = None
-
-        embed = discord.Embed(
-            title=old_embed.title + " - " + section_title,
-            description=description,
-            url=old_embed.url + "#" + section_title.replace(" ", "_"),
-            color=old_embed.color
-        )
-        embed.set_thumbnail(url=getEmbedThumbnailUrl(old_embed))
-        embeds.append(embed)
-
-        if section_content:
-            while len(section_content) > 1024:
-                embed.add_field(
-                    name=section_title,
-                    value=section_content[:1024],
-                    inline=False
-                )
-                if len(embed) > 6000:
-                    embed.remove_field(len(embed.fields)-1)
-                    embed = discord.Embed(
-                        title=old_embed.title + " - " + section_title,
-                        url=old_embed.url + "#" + section_title.replace(" ", "_"),
-                        color=old_embed.color
-                    )
-                    embeds.append(embed)
-                    embed.add_field(
-                        name=section_title,
-                        value=section_content[:1024],
-                        inline=False
-                    )
-                section_content = section_content[1024:]
-            embed.add_field(
-                name=section_title,
-                value=section_content,
-                inline=False
-            )
-            if len(embed) > 6000:
-                embed.remove_field(len(embed.fields)-1)
-                embed = discord.Embed(
-                    title=old_embed.title + " - " + section_title,
-                    url=old_embed.url + "#" + section_title.replace(" ", "_"),
-                    color=old_embed.color
-                )
-                embeds.append(embed)
-                embed.add_field(
-                    name=section_title,
-                    value=section_content,
-                    inline=False
-                )
-    for embed in embeds:
-        print(len(embed))
+    if len(embeds) > 1:
+        embeds[0].title = title + " Part 1"
     return embeds
 
 
@@ -272,19 +245,19 @@ class SectionsSelect(discord.ui.Select):
     async def callback(self, interaction: discord.Interaction):
         if self.original_message is None:
             self.original_message = interaction.message
-        embeds = createSectionEmbed(self.html, self.page, self.values[0], self.embed)
+        # Section text is parsed locally; keep the loop responsive.
+        embeds = await asyncio.to_thread(
+            createSectionEmbed, self.html, self.page, self.values[0], self.embed
+        )
 
         # Delete embeds that were part of the partitioning system
-        if len(self.parts) > 0:
-            for embed_response in self.parts:
-                if isinstance(embed_response, discord.Interaction):
-                    await embed_response.delete_original_response()
-                else:
-                    await embed_response.delete()
-            self.parts = []
+        for embed_response in self.parts:
+            if isinstance(embed_response, discord.Interaction):
+                await embed_response.delete_original_response()
+            else:
+                await embed_response.delete()
+        self.parts = []
 
-        # Send embeds
-        # original_response = await interaction.original_response()
         if len(embeds) > 1:
             await self.original_message.edit(embed=embeds[0], view=None)
             # Send additional parts and add them to the parts list
@@ -295,8 +268,9 @@ class SectionsSelect(discord.ui.Select):
             await self.original_message.edit(embed=embeds[0], view=self.view)
             await interaction.edit(embed=embeds[0])
         else:
-            await self.original_message.edit("Something went wrong! Couldn't create the embed!", embed=None)
-            await interaction.edit(embed=embeds[0])
+            await self.original_message.edit(
+                "Something went wrong! Couldn't create the embed!", embed=None, view=None
+            )
 
 
 class CraftingButton(discord.ui.Button):
@@ -308,16 +282,18 @@ class CraftingButton(discord.ui.Button):
         await interaction.response.defer(invisible=False)
         self.disabled = True
         await interaction.message.edit(view=self.view)
-        files = createCraftingGifs(self.html)
-        while len(files) > 10:
-            await interaction.followup.send(files=files[0:9])
-            files = files[10:]
-        await interaction.followup.send(files=files)
+        # GIF generation downloads sprites and uses PIL: keep it off the loop.
+        files = await asyncio.to_thread(createCraftingGifs, self.html)
+        for start in range(0, len(files), 10):
+            await interaction.followup.send(files=files[start:start + 10])
 
 
 class SectionsView(discord.ui.View):
     def __init__(self, html, page, sections: list[str], embed: discord.Embed):
-        super().__init__(timeout=None)
+        # A finite timeout lets the view (and the page HTML it holds) be
+        # released. These components have no custom IDs, so they are not
+        # persistent across restarts anyway.
+        super().__init__(timeout=600)
         if len(sections) > 0:
             self.add_item(SectionsSelect(html, page, sections, embed))
 
@@ -334,7 +310,7 @@ class Wiki(discord.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        print(f"** SUCCESSFULLY LOADED {__name__} **")
+        logger.info("** SUCCESSFULLY LOADED %s **", __name__)
 
     @discord.slash_command(
         name="wiki",
@@ -359,7 +335,7 @@ class Wiki(discord.Cog):
             )
             await ctx.respond(embed=embed)
             return
-        print(f"[INFO] Starting a search for '{search}'")
+        logger.info("Starting a search for '%s'", search)
         try:
             search_results = wikipedia.search(search, results=1)
             if len(search_results) == 0:
@@ -376,14 +352,16 @@ class Wiki(discord.Cog):
             await ctx.respond("We could not complete your search due to a temporary problem. Please try again later.")
             return
         except DisambiguationError as e:
-            print(f"[INFO] Found a Disambiguation '{e.title}' for search '{search}'")
+            logger.info("Found a Disambiguation '%s' for search '%s'", e.title, search)
             referrals = []
+            seen = set()
             for link in e.details:
-                if f"- {link['title']}" not in referrals:
-                    referrals.append(f"- {link['title']}")
-            referrals = '\n'.join(referrals)
-            if not referrals:
-                referrals = "Could not find any similar pages :cry:"
+                label = link.get('title') if isinstance(link, dict) else str(link)
+                line = f"- {label}"
+                if line not in seen:
+                    seen.add(line)
+                    referrals.append(line)
+            referrals = '\n'.join(referrals) or "Could not find any similar pages :cry:"
             text = '\n'.join((
                 f"\"[{e.title}]({e.url})\" may refer to:",
                 referrals,
@@ -395,15 +373,16 @@ class Wiki(discord.Cog):
                 color=discord.Color.red(),
             )
             await ctx.respond(embed=embed)
-            print(f"[INFO] Successfully sent a Disambiguation '{e.title}'!")
+            logger.info("Successfully sent a Disambiguation '%s'!", e.title)
             return
-        print(f"[INFO] Found '{page.title}' for search '{search}'")
+        logger.info("Found '%s' for search '%s'", page.title, search)
 
         html = Soup(page.html, 'html.parser')
         image_area = html.find(class_="infobox-imagearea")
-        image_a = None
-        if image_area is not None:
-            image_a = image_area.find('a')
+        image_a = (
+            image_area.find('a', href=lambda href: href and 'File:' in href)
+            if image_area is not None else None
+        )
 
         embed = discord.Embed(
             title=page.title,
@@ -412,131 +391,18 @@ class Wiki(discord.Cog):
             color=discord.Color(43520),    # 00AA00 (dark green)
         )
         if image_a is not None:
-            image_url = "https://minecraft.wiki/images/" + image_a.get('href').split('File:')[1]
-            print(image_url)
+            image_url = "https://minecraft.wiki/images/" + image_a['href'].split('File:', 1)[1].lstrip('/')
+            logger.debug("Thumbnail: %s", image_url)
             embed.set_thumbnail(url=image_url)
         else:
-            print(f"[WARN] Couldn't find a thumbnail for '{page.title}'!")
+            logger.warning("Couldn't find a thumbnail for '%s'!", page.title)
 
-        # Experimental infobox
-        infobox = html.find(class_='infobox-rows')
-        if infobox:
-            # info_text = ""
-            info_rows = infobox.find_all('tr')
-            for row in info_rows:
-                th = row.find('th')
-                if th is None:
-                    continue
-                header_text = th.get_text(' ', strip=True)
-                # print(th)
-
-                td = row.find('td')
-                if td is None:
-                    continue
-
-                # One time replacements
-                # links
-                for link_element in td.find_all('a'):
-                    if 'href' not in link_element.attrs:
-                        print(f"No link found in: {link_element}")
-                        continue
-                    sprite_text = link_element.find(class_='sprite-text')
-                    link_prefix = "https://minecraft.wiki"
-                    if link_element['href'].startswith(link_prefix):
-                        link_prefix = ""
-
-                    if sprite_text:
-                        sprite_text.string.replace_with(f"[{sprite_text.string}](<{link_prefix}{link_element['href']}>)")
-                    elif link_element.string:
-                        link_element.string.replace_with(f"[{link_element.string}](<{link_prefix}{link_element['href']}>)")
-                    # else:
-                    #     sprite = td.find(class_='sprite')
-                    #     if sprite and "title" in sprite.attrs:
-                    #         link_element.append(f"[{sprite['title']}](<{link_prefix}{link_element['href']}>)")
-                    #     else:
-                    #         link_element.append(f"[{link_element['title']}](<{link_prefix}{link_element['href']}>)")
-                    # print(link_element)
-                # images
-                images = td.find_all('img')
-                for image in images:
-                    # Add alt to fix hearts and shields, but block all other alts
-                    if 'alt' in image.attrs and len(image['alt']) <= 2:
-                        image.append(image['alt'])
-                # new-lines
-                for br in td.find_all('br'):
-                    br.append("<br>")
-                for p in td.find_all('p'):
-                    p.append("<br>")
-                for li in td.find_all('li'):
-                    li.append("<br>")
-                # italics
-                for italic in td.find_all('i'):
-                    if italic.string:
-                        italic.string.replace_with(f"*{italic.string}*")
-                    # elif italic.strings:    # doesn't work for some reason
-                    #     for string in italic.strings:
-                    #         string.replace_with(f"_{string}_")
-                    else:
-                        print("skipping italicizing, because idk how to do it")
-                        print(italic)
-                # bold text
-                for bold in td.find_all('b'):
-                    # print(bold)
-                    # if bold.a:
-                    #     for a_elem in bold.find_all('a', text=True):
-                    #         a_elem.string.replace_with(f"**{bold.a.string}**")
-                    # else:
-                    #     bold.string.replace_with(f"**{bold.string}**")
-                    bold.insert(0, "**")
-                    bold.append("**")
-                # hearts
-                mc_hearts = row.find_all(class_='mc-hearts')
-                for mc_heart in mc_hearts:
-                    for single_heart in mc_heart.find_all('img'):
-                        if "half" in single_heart['src'].lower():
-                            single_heart.string.replace_with("♡")
-                        elif "empty" in single_heart['src'].lower():
-                            single_heart.string.replace_with("")
-                            break
-                    else:   # (no empty hearts)
-                        mc_heart.append(") ")
-                        previous = mc_heart.previous_sibling
-                        previous.string.replace_with(f"{previous.string} (")
-                # armor
-                mc_armors = row.find_all(class_='iconbar')
-                for mc_armor in mc_armors:
-                    if "heart" in mc_armor['title'].lower():
-                        continue
-                    for single_armor in mc_armor.find_all('img'):
-                        if "half" in single_armor['src'].lower():
-                            single_armor.string.replace_with("½🛡️")
-
-                # remove new-lines (from strings)
-                # replace some special space characters with normal spaces
-                # change "<br>" to new-lines
-                data_list = [
-                    new_text for text in td.strings
-                    if (
-                        (new_text := re.sub(
-                            "\u00A0|\u200B|\u200C",
-                            " ",
-                            re.sub(
-                                r"( ?\n+ +)|( ?\n+ ?)",
-                                "",
-                                text
-                            )
-                        ).replace("<br>", "\n")) != ''
-                    )
-                ]
-                data_text = ''.join(data_list).strip("\n")
-
-                embed.add_field(
-                    name=header_text,
-                    value=data_text,
-                    inline=False
-                )
-                # if "🛡" in data_text:
-                #     embed.set_footer(text="Note: There is no 'half an armor' emoji, so it is represented the same as full!")
+        for name, value in format_infobox_fields(html.find(class_='infobox-rows')):
+            if (len(embed.fields) >= MAX_FIELDS
+                    or _embed_size(embed) + len(name) + len(value) + 8 > MAX_EMBED_CHARS):
+                logger.warning("Skipping remaining infobox fields for '%s'", page.title)
+                break
+            embed.add_field(name=name, value=value, inline=False)
 
         blacklisted_sections = [
             'Data values',
@@ -551,14 +417,13 @@ class Wiki(discord.Cog):
             'Achievements',
             'Advancements'
         ]
-
         sections = [
             section_title for section_title in page.table_of_contents
             if section_title not in blacklisted_sections
         ]
         view = SectionsView(html, page, sections, embed)
         await ctx.respond(embed=embed, view=view)
-        print(f"[INFO] Successfully sent '{page.title}'!")
+        logger.info("Successfully sent '%s'!", page.title)
 
 
 def setup(bot):

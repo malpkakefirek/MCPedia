@@ -35,7 +35,55 @@ class TestGetEmbedThumbnailUrl:
         assert wiki.getEmbedThumbnailUrl(discord.Embed(title="No thumbnail")) is None
 
 
+class TestInfoboxFormatting:
+    @staticmethod
+    def fields(html):
+        infobox = BeautifulSoup(html, "html.parser").find(class_="infobox-rows")
+        return wiki.format_infobox_fields(infobox)
+
+    def test_image_only_cell_gets_a_readable_label(self):
+        fields = self.fields("""
+        <table class="infobox-rows">
+          <tr><th>Tool</th><td><span class="pixel-image"><img alt="SlotSprite Shovel Required.png: Sprite image for Shovel Required in Minecraft"></span></td></tr>
+          <tr><th>Unknown</th><td></td></tr>
+        </table>
+        """)
+        assert fields == [("Tool", "Shovel Required"), ("Unknown", "—")]
+
+    def test_nested_italics_and_footnotes_are_formatted(self):
+        value = self.fields("""
+        <table class="infobox-rows"><tr><th>Behavior</th><td>
+          Passive<sup class="reference"><a href="#note"><span>[</span>note 1<span>]</span></a></sup>
+          <i><span><a href="/w/Java_Edition">Java Edition</a> only</span></i>
+        </td></tr></table>
+        """)[0][1]
+        assert "note 1" not in value
+        assert "*[Java Edition](<https://minecraft.wiki/w/Java_Edition>) only*" in value
+
+    def test_source_markup_is_not_mutated(self):
+        html = "<table class='infobox-rows'><tr><th>X</th><td><b>bold</b></td></tr></table>"
+        soup = BeautifulSoup(html, "html.parser")
+        infobox = soup.find(class_="infobox-rows")
+        assert wiki.format_infobox_fields(infobox) == wiki.format_infobox_fields(infobox)
+        assert infobox.find("b").get_text() == "bold"
+
+
 class TestCreateSectionEmbed:
+    def test_info_reuses_existing_description_without_another_api_call(self):
+        page = make_page(summary="Should not be requested again")
+        embed = old_embed()
+        embed.description = "Cached summary"
+        assert wiki.createSectionEmbed(None, page, "Info", embed)[0].description == "Cached summary"
+        page.summarize.assert_not_called()
+
+    def test_more_than_25_fields_are_split_across_embeds(self):
+        rows = "".join(f"<tr><th>Field {i}</th><td>value</td></tr>" for i in range(28))
+        html = BeautifulSoup(f"<table class='infobox-rows'>{rows}</table>", "html.parser")
+        embeds = wiki.createSectionEmbed(html, make_page(), "Info", old_embed())
+        assert len(embeds) == 2
+        assert max(len(embed.fields) for embed in embeds) <= wiki.MAX_FIELDS
+        assert all(wiki._embed_size(embed) <= wiki.MAX_EMBED_CHARS for embed in embeds)
+
     def test_info_section_includes_summary_and_infobox(self):
         page = make_page(summary="Dirt is a block.")
         html = BeautifulSoup(INFOBOX_HTML, "html.parser")
@@ -47,7 +95,7 @@ class TestCreateSectionEmbed:
         assert embed.thumbnail.url == "https://minecraft.wiki/images/Dirt.png"
         assert [(field.name, field.value) for field in embed.fields] == [
             ("Hardness", "0.5"),
-            ("Renewable", "YesUsually"),
+            ("Renewable", "Yes\nUsually"),
         ]
 
     def test_section_with_subsections(self):
@@ -69,7 +117,7 @@ class TestCreateSectionEmbed:
         embeds = wiki.createSectionEmbed(BeautifulSoup("<html></html>", "html.parser"), page, "Usage", old_embed())
         assert len(embeds) > 1
         assert all(embed.title.startswith("Dirt - Usage") for embed in embeds)
-        assert all(len(embed) <= 6000 for embed in embeds)
+        assert all(wiki._embed_size(embed) <= 6000 for embed in embeds)
 
 
 class TestWikiSearchCommand:
@@ -175,8 +223,8 @@ class TestCraftingButton:
             await button.callback(interaction)
         sends = interaction.calls_named("followup.send")
         assert len(sends) == 2
-        assert len(sends[0][2]["files"]) == 9
-        assert len(sends[1][2]["files"]) == 2
+        assert [file.name for file in sends[0][2]["files"]] == [str(i) for i in range(10)]
+        assert [file.name for file in sends[1][2]["files"]] == ["10", "11"]
         assert button.disabled is True
         assert interaction.message.calls_named("edit")
 

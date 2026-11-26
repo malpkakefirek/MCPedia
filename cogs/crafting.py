@@ -1,3 +1,4 @@
+import asyncio
 import re
 from random import randint
 from io import BytesIO
@@ -40,9 +41,14 @@ def convert_animated_sprite_to_static_frame(sprite_image):
 
 
 def get_crafting_grids_table(page_content):
-    element = page_content.find(id='Crafting').parent
-    while element.name != 'table':
-        element = element.next
+    heading = page_content.find(id='Crafting')
+    if heading is None or heading.parent is None:
+        raise ValueError("No Crafting heading found on the page")
+    element = heading.parent
+    while getattr(element, 'name', None) != 'table':
+        element = getattr(element, 'next', None)
+        if element is None:
+            raise ValueError("No crafting grid table follows the Crafting heading")
     return element
 
 
@@ -316,11 +322,10 @@ class Crafting(discord.Cog):
         html = page.html
         soup = BeautifulSoup(html, 'html.parser')
 
-        files = createCraftingGifs(soup)
-        while len(files) > 10:
-            await ctx.respond(files=files[0:9])
-            files = files[10:]
-        await ctx.respond(files=files)
+        # GIF generation downloads sprites and uses PIL: keep it off the loop.
+        files = await asyncio.to_thread(createCraftingGifs, soup)
+        for start in range(0, len(files), 10):
+            await ctx.respond(files=files[start:start + 10])
         return
 
 
