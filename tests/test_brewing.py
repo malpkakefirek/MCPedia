@@ -3,7 +3,6 @@
 import discord
 
 from cogs import brewing
-from conftest import FakeContext
 
 
 async def test_brewing_sends_reference_image(ctx):

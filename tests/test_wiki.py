@@ -4,12 +4,11 @@ from types import SimpleNamespace
 from unittest import mock
 
 import discord
-import pytest
 from bs4 import BeautifulSoup
 from mediawiki import DisambiguationError, MediaWikiException
 
 from cogs import wiki
-from conftest import FakeContext, FakeInteraction, make_page
+from conftest import make_page
 
 
 INFOBOX_HTML = """

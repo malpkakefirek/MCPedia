@@ -1,7 +1,6 @@
 """Tests for the help/about commands and their embed delivery fallback."""
 
 from types import SimpleNamespace
-from unittest import mock
 
 import discord
 from discord.commands import slash_command
@@ -9,7 +8,6 @@ from discord.errors import Forbidden
 from discord.ext import commands
 
 from cogs import help_command
-from conftest import FakeContext
 
 
 def forbidden():

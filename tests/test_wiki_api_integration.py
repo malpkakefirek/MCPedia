@@ -15,7 +15,6 @@ from bs4 import BeautifulSoup
 from mediawiki import MediaWiki
 
 from cogs import crafting, villager, wiki
-from conftest import FakeContext
 
 pytestmark = [
     pytest.mark.integration,

@@ -8,7 +8,7 @@ from bs4 import BeautifulSoup
 from PIL import Image
 
 from cogs import crafting
-from conftest import FakeContext, make_page
+from conftest import make_page
 
 
 CRAFTING_HTML = (

@@ -7,7 +7,7 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 
 from cogs import villager
-from conftest import FakeContext, make_page
+from conftest import make_page
 
 
 TRADING_HTML = """
